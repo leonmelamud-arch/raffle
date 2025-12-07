@@ -4,19 +4,21 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Participant } from '@/types';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '../ui/skeleton';
 
 interface SlotMachineProps {
   participants: Participant[];
   winner: Participant | null;
   isSpinning: boolean;
   onSpinEnd: () => void;
+  loading: boolean;
 }
 
 const REPETITIONS = 10;
 const ITEM_HEIGHT_REM = 5; // h-20
 const ITEM_HEIGHT_PX = ITEM_HEIGHT_REM * 16; // 80px
 
-export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: SlotMachineProps) {
+export function SlotMachine({ participants, winner, isSpinning, onSpinEnd, loading }: SlotMachineProps) {
   const [shuffledParticipants, setShuffledParticipants] = useState<Participant[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
@@ -72,6 +74,14 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: Slo
   };
 
   const hasParticipants = shuffledParticipants.length > 0;
+
+  if (loading) {
+    return (
+        <div className="relative h-[15rem] w-full max-w-lg overflow-hidden bg-card/80 backdrop-blur-sm rounded-2xl shadow-2xl flex items-center justify-center">
+            <Skeleton className="h-20 w-[90%] rounded-lg" />
+        </div>
+    );
+  }
 
   return (
     <div className="relative h-[15rem] w-full max-w-lg overflow-hidden bg-card/80 backdrop-blur-sm rounded-2xl shadow-2xl">

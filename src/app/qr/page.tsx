@@ -4,6 +4,9 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from 'next/navigation';
+import { collection, addDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +19,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useParticipants } from "@/context/ParticipantsContext";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters.").max(50),
@@ -26,7 +28,7 @@ const formSchema = z.object({
 export default function QRPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAllParticipants, setAvailableParticipants, allParticipants } = useParticipants();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -36,25 +38,31 @@ export default function QRPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const newParticipant = {
-      id: `${values.name}-${values.lastName}-${Date.now()}`,
-      name: values.name,
-      lastName: values.lastName,
-      displayName: `${values.name} ${values.lastName}`,
-    };
-    
-    setAllParticipants(prev => [...prev, newParticipant]);
-    setAvailableParticipants(prev => [...prev, newParticipant]);
-    
-    toast({
-      title: "You're in!",
-      description: `Welcome to the raffle, ${values.name} ${values.lastName}!`,
-    });
-    
-    // You can redirect or show a success message.
-    // For now, we'll just show a toast.
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+        const newParticipant = {
+            name: values.name,
+            lastName: values.lastName,
+            displayName: `${values.name} ${values.lastName}`,
+        };
+        
+        await addDoc(collection(firestore, "participants"), newParticipant);
+        
+        toast({
+            title: "You're in!",
+            description: `Welcome to the raffle, ${values.name} ${values.lastName}!`,
+        });
+        
+        form.reset();
+
+    } catch (error) {
+        console.error("Error adding participant: ", error);
+        toast({
+            title: "Error",
+            description: "Could not add you to the raffle. Please try again.",
+            variant: "destructive",
+        });
+    }
   }
 
   return (
@@ -99,7 +107,9 @@ export default function QRPage() {
                 )}
               />
               <div className="flex gap-4 mt-4">
-                <Button type="submit" className="w-full">Join Raffle</Button>
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? 'Joining...' : 'Join Raffle'}
+                </Button>
               </div>
             </form>
           </Form>

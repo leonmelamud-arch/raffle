@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { Participant } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
@@ -12,11 +12,13 @@ import { useParticipants } from '@/context/ParticipantsContext';
 import { Confetti } from '@/components/raffle/Confetti';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
+import { collection, addDocs, writeBatch, doc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 const initialLogo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
 
 export default function Home() {
-  const { allParticipants, setAllParticipants, availableParticipants, setAvailableParticipants } = useParticipants();
+  const { allParticipants, setAllParticipants, availableParticipants, setAvailableParticipants, loading } = useParticipants();
   const [winner, setWinner] = useState<Participant | null>(null);
   const [isRaffling, setIsRaffling] = useState(false);
   const [spinHasEnded, setSpinHasEnded] = useState(false);
@@ -24,17 +26,38 @@ export default function Home() {
   const [logoUrl, setLogoUrl] = useState<string | undefined>(initialLogo?.imageUrl);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const firestore = useFirestore();
 
-  const handleParticipantsLoad = (newParticipants: Participant[]) => {
+  const handleParticipantsLoad = async (newParticipants: Participant[]) => {
+    
     const uniqueNew = newParticipants.filter(np => !allParticipants.some(ap => ap.id === np.id));
     
     if (uniqueNew.length > 0) {
-      setAllParticipants(prev => [...prev, ...uniqueNew]);
-      setAvailableParticipants(prev => [...prev, ...uniqueNew]);
-      toast({
-        title: "Participants Added",
-        description: `${uniqueNew.length} new participants have been added to the raffle.`,
-      });
+       try {
+        const batch = writeBatch(firestore);
+        const participantsCol = collection(firestore, 'participants');
+        uniqueNew.forEach(participant => {
+            const {id, ...data} = participant;
+            const docRef = doc(participantsCol, id);
+            batch.set(docRef, data);
+        });
+        await batch.commit();
+
+        // The context will update the local state from Firestore listener
+        toast({
+            title: "Participants Added",
+            description: `${uniqueNew.length} new participants have been added to the raffle.`,
+        });
+
+      } catch (error) {
+        console.error("Error adding participants: ", error);
+        toast({
+          title: "Import Error",
+          description: "Could not save participants to the database.",
+          variant: "destructive"
+        });
+      }
+
     } else {
        toast({
         title: "No New Participants",
@@ -144,19 +167,20 @@ export default function Home() {
             participants={allParticipants} 
             winner={winner} 
             isSpinning={isRaffling} 
-            onSpinEnd={handleSpinEnd} 
+            onSpinEnd={handleSpinEnd}
+            loading={loading && allParticipants.length === 0}
           />
           <div className="flex flex-wrap gap-4 items-center justify-center">
              {!spinHasEnded ? (
                 <Button 
                 onClick={handleStartRaffle} 
-                disabled={isRaffling || availableParticipants.length === 0}
+                disabled={isRaffling || loading || availableParticipants.length === 0}
                 size="lg"
                 className="font-bold text-lg"
                 variant="default"
               >
                 <Trophy className="mr-2 h-5 w-5" />
-                Start Raffle
+                {loading ? 'Loading...' : 'Start Raffle'}
               </Button>
              ) : (
               <Button onClick={handleNextRound} size="lg" className="font-bold text-lg">
