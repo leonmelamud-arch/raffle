@@ -5,20 +5,35 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '../ui/button';
 import { useRouter } from 'next/navigation';
 import { QrCode, Upload, Sparkles } from 'lucide-react';
-import React from 'react';
+import React, { useRef } from 'react';
 import { ParticipantImporter } from '../raffle/ParticipantImporter';
 
-const logo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
+const placeholderLogo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
 
 interface HeaderProps {
   onParticipantsLoad: (participants: any[]) => void;
   isRaffling: boolean;
   onLogoRain: () => void;
+  logoUrl?: string;
+  onLogoChange: (file: File) => void;
   children?: React.ReactNode;
 }
 
-export function Header({ onParticipantsLoad, isRaffling, onLogoRain, children }: HeaderProps) {
+export function Header({ onParticipantsLoad, isRaffling, onLogoRain, logoUrl, onLogoChange, children }: HeaderProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onLogoChange(file);
+    }
+  };
+
   return (
     <header className="py-6 px-4 flex justify-between items-center w-full">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-primary font-headline">
@@ -40,16 +55,28 @@ export function Header({ onParticipantsLoad, isRaffling, onLogoRain, children }:
             <Sparkles className="mr-2 h-4 w-4" />
             Logos
         </Button>
-         {logo && (
-            <Image
-              src={logo.imageUrl}
-              alt={logo.description}
-              width={56}
-              height={56}
-              className="rounded-full shadow-lg border-2 border-primary"
-              data-ai-hint={logo.imageHint}
-            />
+         {logoUrl && (
+            <button onClick={handleLogoClick} className="cursor-pointer group relative">
+                <Image
+                  src={logoUrl}
+                  alt={placeholderLogo?.description || "Raffle Logo"}
+                  width={56}
+                  height={56}
+                  className="rounded-full shadow-lg border-2 border-primary group-hover:opacity-70 transition-opacity"
+                  data-ai-hint={placeholderLogo?.imageHint}
+                />
+                 <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-xs font-bold">Change</span>
+                </div>
+            </button>
           )}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange}
+            accept="image/*" 
+            className="hidden" 
+           />
       </div>
     </header>
   );

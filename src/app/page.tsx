@@ -12,7 +12,7 @@ import { useParticipants } from '@/context/ParticipantsContext';
 import { Confetti } from '@/components/raffle/Confetti';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
-const logo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
+const initialLogo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
 
 export default function Home() {
   const { allParticipants, setAllParticipants, availableParticipants, setAvailableParticipants } = useParticipants();
@@ -20,6 +20,7 @@ export default function Home() {
   const [isRaffling, setIsRaffling] = useState(false);
   const [spinHasEnded, setSpinHasEnded] = useState(false);
   const [isRainingLogos, setIsRainingLogos] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(initialLogo?.imageUrl);
   const { toast } = useToast();
 
   const handleParticipantsLoad = (newParticipants: Participant[]) => {
@@ -39,6 +40,19 @@ export default function Home() {
         variant: "destructive"
       });
     }
+  };
+  
+  const handleLogoChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const newUrl = e.target?.result as string;
+      setLogoUrl(newUrl);
+      toast({
+        title: "Logo Updated",
+        description: "The new logo has been applied.",
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleStartRaffle = () => {
@@ -80,9 +94,15 @@ export default function Home() {
 
   return (
     <>
-      <Confetti isCelebrating={spinHasEnded || isRainingLogos} image={isRainingLogos ? logo?.imageUrl : undefined} />
+      <Confetti isCelebrating={spinHasEnded || isRainingLogos} image={isRainingLogos ? logoUrl : undefined} />
       <main className="flex flex-col items-center justify-between min-h-screen w-full p-4 md:p-8">
-        <Header onParticipantsLoad={handleParticipantsLoad} isRaffling={isRaffling} onLogoRain={handleLogoRain} />
+        <Header 
+          onParticipantsLoad={handleParticipantsLoad} 
+          isRaffling={isRaffling} 
+          onLogoRain={handleLogoRain} 
+          logoUrl={logoUrl}
+          onLogoChange={handleLogoChange}
+        />
         
         <div className="w-full max-w-4xl mx-auto flex-grow flex flex-col items-center justify-center gap-8">
           <SlotMachine 
