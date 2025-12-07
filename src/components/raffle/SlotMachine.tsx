@@ -19,7 +19,7 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: Slo
   const [shuffledParticipants, setShuffledParticipants] = useState<Participant[]>([]);
   const [animationTarget, setAnimationTarget] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const participantList = useMemo(() => {
     if (participants.length === 0) return [];
@@ -33,27 +33,33 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: Slo
         setShuffledParticipants(participantList);
     }
   }, [participants, participantList]);
-
+  
   useEffect(() => {
     if (isSpinning && winner && shuffledParticipants.length > 0) {
       // Find a winner instance in the latter half for a good spin
       const winnerIndex = shuffledParticipants.findIndex(
         (p, index) => p.id === winner.id && index >= shuffledParticipants.length / 2
       );
-
+      
       if (winnerIndex !== -1) {
+        const list = listRef.current;
+        if (!list) return;
+
+        // Reset to initial state without animation
+        list.style.transition = 'none';
+        list.style.transform = 'translateY(0px)';
+
+        // Force a reflow
+        void list.offsetHeight;
+        
         // Center the winner in the view. The container is 3 items high, so we want the winner at the 2nd position.
         const targetPosition = -winnerIndex * ITEM_HEIGHT_PX + ITEM_HEIGHT_PX;
-        setAnimationTarget(targetPosition);
+        
+        // Set animation styles and trigger it
+        list.style.transition = 'transform 8s cubic-bezier(0.25, 0.1, 0.25, 1)';
+        list.style.transform = `translateY(${targetPosition}px)`;
+        
         setIsAnimating(true);
-      } else {
-        // Fallback if winner not found in the latter half (edge case)
-        const firstWinnerIndex = shuffledParticipants.findIndex(p => p.id === winner.id);
-        if (firstWinnerIndex !== -1) {
-          const targetPosition = -firstWinnerIndex * ITEM_HEIGHT_PX + ITEM_HEIGHT_PX;
-          setAnimationTarget(targetPosition);
-          setIsAnimating(true);
-        }
       }
     }
   }, [isSpinning, winner, shuffledParticipants]);
@@ -62,30 +68,6 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: Slo
     if (isAnimating) {
       setIsAnimating(false);
       onSpinEnd();
-
-      // "Snap" to a new state to prepare for next spin without animation
-      if (winner && listRef.current) {
-        
-        listRef.current.style.transition = 'none';
-
-        // Re-shuffle for the next round to feel fresh
-        const newShuffledList = [...participants].sort(() => 0.5 - Math.random());
-        const finalNewShuffledList = Array.from({ length: REPETITIONS }, () => newShuffledList).flat();
-        
-        const winnerIndex = finalNewShuffledList.findIndex(p => p.id === winner.id);
-
-        setShuffledParticipants(finalNewShuffledList);
-        
-        const newTarget = -winnerIndex * ITEM_HEIGHT_PX + ITEM_HEIGHT_PX;
-        setAnimationTarget(newTarget);
-        
-        // Restore transition after a frame
-        setTimeout(() => {
-            if (listRef.current) {
-                listRef.current.style.transition = '';
-            }
-        }, 50);
-      }
     }
   };
 
@@ -106,32 +88,26 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd }: Slo
         aria-hidden="true" 
       />
 
-      <div
+      <ul
         ref={listRef}
-        className={cn(isAnimating && "duration-[8000ms]")}
-        style={{
-          transform: `translateY(${animationTarget}px)`,
-          transitionProperty: 'transform',
-          transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1.0)'
-        }}
         onTransitionEnd={handleTransitionEnd}
       >
         {hasParticipants ? (
           shuffledParticipants.map((p, i) => (
-            <div
+            <li
               key={`${p.id}-${i}`}
               className="h-20 flex items-center justify-center text-4xl font-bold text-card-foreground/70"
               aria-hidden={!isSpinning && winner?.id === p.id ? "false" : "true"}
             >
               {p.displayName}
-            </div>
+            </li>
           ))
         ) : (
-          <div className="h-full flex items-center justify-center text-card-foreground/50 text-xl">
+          <li className="h-full flex items-center justify-center text-card-foreground/50 text-xl">
             Add participants to begin
-          </div>
+          </li>
         )}
-      </div>
+      </ul>
     </div>
   );
 }
