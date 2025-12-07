@@ -30,7 +30,7 @@ export function WinnerModal({ open, onOpenChange, winner, onNextRound }: WinnerM
         </DialogHeader>
         <div className="py-8 z-10">
           <p className="text-6xl font-bold text-primary-foreground break-words">
-            {winner ? `${winner.name} ${winner.lastName}` : ''}
+            {winner?.displayName || ''}
           </p>
         </div>
         <DialogFooter className="z-10 mb-4">

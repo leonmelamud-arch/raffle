@@ -41,7 +41,7 @@ export default function QRPage() {
       id: `${values.name}-${values.lastName}-${Date.now()}`,
       name: values.name,
       lastName: values.lastName,
-      displayName: `${values.name} ${values.lastName.charAt(0)}.`,
+      displayName: `${values.name} ${values.lastName}`,
     };
     
     setAllParticipants(prev => [...prev, newParticipant]);

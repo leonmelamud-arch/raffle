@@ -34,12 +34,13 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
         
         const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const firstNameIndex = header.indexOf('first_name');
-        const lastNameIndex = header.indexOf('name');
+        const lastNameIndex = header.indexOf('last_name');
+        const nameIndex = header.indexOf('name');
 
-        if (firstNameIndex === -1 || lastNameIndex === -1) {
+        if (firstNameIndex === -1 || nameIndex === -1) {
             toast({
                 title: "Import Failed",
-                description: "CSV must contain 'first_name' and 'name' columns.",
+                description: "CSV must contain at least 'first_name' and 'name' columns.",
                 variant: "destructive"
             });
             return;
@@ -51,14 +52,15 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
             if (!line.trim()) return null;
             const data = line.split(',').map(s => s.trim().replace(/"/g, ''));
             const firstName = data[firstNameIndex];
-            const lastName = data[lastNameIndex];
+            const lastName = lastNameIndex !== -1 ? data[lastNameIndex] : '';
+            const name = data[nameIndex];
             
-            if (firstName && lastName) {
+            if (firstName) {
               return {
                 id: `${firstName}-${lastName}-${index}`,
                 name: firstName,
                 lastName: lastName,
-                displayName: `${firstName} ${lastName.charAt(0)}.`,
+                displayName: lastName ? `${firstName} ${lastName}` : name,
               };
             }
             return null;
