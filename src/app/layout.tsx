@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster";
+import { SessionProvider } from '@/context/SessionContext';
 import { ParticipantsProvider } from '@/context/ParticipantsContext';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { QrModalProvider } from '@/context/QrModalContext';
 
 export const metadata: Metadata = {
   title: 'HypnoRaffle',
@@ -23,15 +24,19 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn('font-body antialiased')} suppressHydrationWarning>
-        <FirebaseClientProvider>
-          <ParticipantsProvider>
-            <div className="min-h-screen w-full">
-              {children}
-            </div>
-          </ParticipantsProvider>
-        </FirebaseClientProvider>
+        <SessionProvider>
+          <QrModalProvider>
+            <ParticipantsProvider>
+              <div className="min-h-screen w-full">
+                {children}
+              </div>
+            </ParticipantsProvider>
+          </QrModalProvider>
+        </SessionProvider>
         <Toaster />
       </body>
     </html>
   );
 }
+
+

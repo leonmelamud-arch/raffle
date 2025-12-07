@@ -1,71 +1,68 @@
-
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Participant } from '@/types';
-import {
-  collection,
-  query,
-  onSnapshot,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { supabase } from '@/lib/supabase';
 
-export function useParticipants() {
-  const firestore = useFirestore();
+export function useParticipants(sessionId: string | null) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Memoize the query to prevent re-creating it on every render.
-  // This is a key part of preventing infinite loops.
-  const participantsQuery = useMemo(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'participants'));
-  }, [firestore]);
-
-  useEffect(() => {
-    // If firestore isn't ready, don't do anything.
-    if (!participantsQuery) {
-      setLoading(!firestore); // If firestore is null, we are loading.
+  const fetchParticipants = useCallback(async () => {
+    if (!sessionId) {
+      setParticipants([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
-    setError(null);
+    const { data, error } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('session_id', sessionId);
 
-    const unsubscribe: Unsubscribe = onSnapshot(
-      participantsQuery,
-      (snapshot) => {
-        const firestoreParticipants = snapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Participant)
-        );
+    if (error) {
+      console.error('Error fetching participants:', error);
+      setError(error as any);
+    } else {
+      setParticipants(data as Participant[]);
+    }
+    setLoading(false);
+  }, [sessionId]);
 
-        setParticipants(firestoreParticipants);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("useParticipants - Firestore Error:", err);
-        setError(err);
-        setLoading(false);
-        // Also emit a more specific permission error if that's the cause
-        const permissionError = new FirestorePermissionError({
-          path: participantsQuery.path,
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      }
-    );
+  useEffect(() => {
+    if (!sessionId) {
+      setParticipants([]);
+      setLoading(false);
+      return;
+    }
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [participantsQuery, firestore]); // Dependency array ensures this only runs when the query or firestore instance changes.
+    fetchParticipants();
 
-  return { participants, loading, error };
+    // Subscribe to changes for this specific session
+    const channel = supabase
+      .channel(`participants-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'participants',
+          filter: `session_id=eq.${sessionId}`
+        },
+        (payload) => {
+          // Refetch to keep in sync
+          fetchParticipants();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId, fetchParticipants]);
+
+  return { participants, loading, error, refetch: fetchParticipants };
 }
+

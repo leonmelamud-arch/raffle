@@ -24,28 +24,28 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
         const text = event.target?.result as string;
         const lines = text.split(/\r?\n/);
         if (lines.length < 2) {
-            toast({
-                title: "Import Failed",
-                description: "CSV file is empty or missing headers.",
-                variant: "destructive"
-            });
-            return;
+          toast({
+            title: "Import Failed",
+            description: "CSV file is empty or missing headers.",
+            variant: "destructive"
+          });
+          return;
         }
-        
+
         const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const firstNameIndex = header.indexOf('first_name');
         const lastNameIndex = header.indexOf('last_name');
         const nameIndex = header.indexOf('name');
-        const displayNameIndex = header.indexOf('displayName');
+        const displayNameIndex = header.indexOf('display_name');
 
 
         if (nameIndex === -1 && displayNameIndex === -1 && (firstNameIndex === -1 || lastNameIndex === -1)) {
-            toast({
-                title: "Import Failed",
-                description: "CSV must contain a 'name' column, a 'displayName' column, or 'first_name' and 'last_name' columns.",
-                variant: "destructive"
-            });
-            return;
+          toast({
+            title: "Import Failed",
+            description: "CSV must contain a 'name' column, a 'display_name' column, or 'first_name' and 'last_name' columns.",
+            variant: "destructive"
+          });
+          return;
         }
 
         const newParticipants: Participant[] = lines
@@ -53,7 +53,7 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
           .map((line, index) => {
             if (!line.trim()) return null;
             const data = line.split(',').map(s => s.trim().replace(/"/g, ''));
-            
+
             const firstName = firstNameIndex !== -1 ? data[firstNameIndex] : '';
             const lastName = lastNameIndex !== -1 ? data[lastNameIndex] : '';
             const name = nameIndex !== -1 ? data[nameIndex] : '';
@@ -64,27 +64,27 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
               return {
                 id: `${displayName.toLowerCase().replace(/\s+/g, '-')}-${index}`,
                 name: nameParts[0],
-                lastName: nameParts.slice(1).join(' '),
-                displayName: displayName,
+                last_name: nameParts.slice(1).join(' '),
+                display_name: displayName,
               };
             }
-            
+
             if (name) {
               const nameParts = name.split(' ');
               return {
                 id: `${name.toLowerCase().replace(/\s+/g, '-')}-${index}`,
                 name: nameParts[0],
-                lastName: nameParts.slice(1).join(' '),
-                displayName: name,
+                last_name: nameParts.slice(1).join(' '),
+                display_name: name,
               };
             }
 
             if (firstName && lastName) {
-               return {
+              return {
                 id: `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${index}`,
                 name: firstName,
-                lastName: lastName,
-                displayName: `${firstName} ${lastName}`,
+                last_name: lastName,
+                display_name: `${firstName} ${lastName}`,
               };
             }
 
@@ -114,15 +114,15 @@ export function ParticipantImporter({ onParticipantsLoad, disabled, children }: 
       }
     };
     reader.onerror = () => {
-       toast({
-          title: "File ReadError",
-          description: "There was an error reading your file.",
-          variant: "destructive"
-        });
+      toast({
+        title: "File ReadError",
+        description: "There was an error reading your file.",
+        variant: "destructive"
+      });
     };
     reader.readAsText(file);
   };
-  
+
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
