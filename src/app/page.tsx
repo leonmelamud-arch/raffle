@@ -30,16 +30,17 @@ export default function Home() {
 
   const handleParticipantsLoad = async (newParticipants: Participant[]) => {
     
+    if (!firestore) {
+      toast({ title: "Database not connected", description: "Please try again later.", variant: "destructive"});
+      return;
+    }
+
+    const participantsCol = collection(firestore, 'participants');
     const uniqueNew = newParticipants.filter(np => !allParticipants.some(ap => ap.id === np.id));
-    
+
     if (uniqueNew.length > 0) {
-       try {
-        if (!firestore) {
-          toast({ title: "Database not connected", description: "Please try again later.", variant: "destructive"});
-          return;
-        }
+      try {
         const batch = writeBatch(firestore);
-        const participantsCol = collection(firestore, 'participants');
         uniqueNew.forEach(participant => {
             const {id, ...data} = participant;
             const docRef = doc(participantsCol, id);
@@ -47,7 +48,6 @@ export default function Home() {
         });
         await batch.commit();
 
-        // The context will update the local state from Firestore listener
         toast({
             title: "Participants Added",
             description: `${uniqueNew.length} new participants have been added to the raffle.`,
@@ -61,9 +61,8 @@ export default function Home() {
           variant: "destructive"
         });
       }
-
     } else {
-       toast({
+      toast({
         title: "No New Participants",
         description: "The imported participants are already in the raffle.",
       });

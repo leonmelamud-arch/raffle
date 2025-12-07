@@ -1,33 +1,36 @@
 'use client';
 
 import {
-  collection,
   onSnapshot,
-  query,
   type CollectionReference,
   type DocumentData,
   type Query,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
-import { useFirestore } from '../provider';
+import { useEffect, useState, useRef } from 'react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-export function useCollection<T extends { id: string }>(path: string) {
-  const firestore = useFirestore();
+export function useCollection<T extends { id: string }>(
+  queryOrRef: Query | CollectionReference | null
+) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryRef = useRef(queryOrRef);
 
   useEffect(() => {
-    if (!firestore) return;
+    // Prevent re-running the effect if the query object itself is the same
+    if (queryRef.current === queryOrRef && data) return;
+    queryRef.current = queryOrRef;
 
-    const collectionRef = collection(
-      firestore,
-      path
-    ) as CollectionReference<Omit<T, 'id'>>;
+    if (!queryOrRef) {
+        setLoading(false);
+        return;
+    }
     
+    setLoading(true);
+
     const unsubscribe = onSnapshot(
-      collectionRef,
+      queryOrRef,
       (snapshot) => {
         const items = snapshot.docs.map(
           (doc) =>
@@ -41,8 +44,9 @@ export function useCollection<T extends { id: string }>(path: string) {
       },
       (error) => {
         console.error('Error fetching collection:', error);
+        const path = 'path' in queryOrRef ? queryOrRef.path : 'unknown path';
         const permissionError = new FirestorePermissionError({
-            path: collectionRef.path,
+            path: path,
             operation: 'list',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -51,7 +55,7 @@ export function useCollection<T extends { id: string }>(path: string) {
     );
 
     return () => unsubscribe();
-  }, [firestore, path]);
+  }, [queryOrRef, data]);
 
   return { data, loading };
 }
