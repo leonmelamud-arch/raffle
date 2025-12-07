@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { Participant } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
@@ -11,6 +11,7 @@ import { Trophy } from 'lucide-react';
 import { useParticipants } from '@/context/ParticipantsContext';
 import { Confetti } from '@/components/raffle/Confetti';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import Image from 'next/image';
 
 const initialLogo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [isRainingLogos, setIsRainingLogos] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(initialLogo?.imageUrl);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleParticipantsLoad = (newParticipants: Participant[]) => {
     const uniqueNew = newParticipants.filter(np => !allParticipants.some(ap => ap.id === np.id));
@@ -53,6 +55,17 @@ export default function Home() {
       });
     };
     reader.readAsDataURL(file);
+  };
+  
+  const handleLogoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleLogoChange(file);
+    }
   };
 
   const handleStartRaffle = () => {
@@ -99,12 +112,34 @@ export default function Home() {
         <Header 
           onParticipantsLoad={handleParticipantsLoad} 
           isRaffling={isRaffling} 
-          onLogoRain={handleLogoRain} 
-          logoUrl={logoUrl}
-          onLogoChange={handleLogoChange}
+          onLogoRain={handleLogoRain}
         />
         
         <div className="w-full max-w-4xl mx-auto flex-grow flex flex-col items-center justify-center gap-8">
+            
+          {logoUrl && (
+            <button onClick={handleLogoClick} className="cursor-pointer group relative mb-8">
+                <Image
+                  src={logoUrl}
+                  alt={initialLogo?.description || "Raffle Logo"}
+                  width={160}
+                  height={160}
+                  className="rounded-full shadow-lg border-4 border-primary/50 group-hover:opacity-80 transition-opacity"
+                  data-ai-hint={initialLogo?.imageHint}
+                />
+                 <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-sm font-bold">Change Logo</span>
+                </div>
+            </button>
+          )}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange}
+            accept="image/*" 
+            className="hidden" 
+           />
+
           <SlotMachine 
             participants={allParticipants} 
             winner={winner} 
