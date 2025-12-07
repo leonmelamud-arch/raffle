@@ -2,16 +2,15 @@
 
 import React, { useRef } from 'react';
 import type { Participant } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ParticipantImporterProps {
   onParticipantsLoad: (participants: Participant[]) => void;
   disabled?: boolean;
+  children: React.ReactElement;
 }
 
-export function ParticipantImporter({ onParticipantsLoad, disabled }: ParticipantImporterProps) {
+export function ParticipantImporter({ onParticipantsLoad, disabled, children }: ParticipantImporterProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -73,12 +72,13 @@ export function ParticipantImporter({ onParticipantsLoad, disabled }: Participan
     reader.readAsText(file);
   };
   
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <>
-      <Button variant="secondary" disabled={disabled} onClick={() => fileInputRef.current?.click()}>
-        <Upload className="mr-2 h-4 w-4" />
-        Upload CSV
-      </Button>
+      {React.cloneElement(children, { onClick: triggerFileInput, disabled })}
       <input
         type="file"
         ref={fileInputRef}

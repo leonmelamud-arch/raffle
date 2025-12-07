@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import type { Participant } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/Header';
-import { ParticipantImporter } from '@/components/raffle/ParticipantImporter';
 import { SlotMachine } from '@/components/raffle/SlotMachine';
 import { WinnerModal } from '@/components/raffle/WinnerModal';
 import { secureRandom } from '@/lib/utils';
@@ -73,9 +72,7 @@ export default function Home() {
   return (
     <>
       <main className="flex flex-col items-center justify-between min-h-screen w-full p-4 md:p-8">
-        <Header>
-            <ParticipantImporter onParticipantsLoad={handleParticipantsLoad} disabled={isRaffling} />
-        </Header>
+        <Header onParticipantsLoad={handleParticipantsLoad} isRaffling={isRaffling} />
         
         <div className="w-full max-w-4xl mx-auto flex-grow flex flex-col items-center justify-center gap-8">
           <SlotMachine 

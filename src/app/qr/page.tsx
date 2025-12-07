@@ -16,7 +16,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Header } from "@/components/layout/Header";
 import { useParticipants } from "@/context/ParticipantsContext";
 
 const formSchema = z.object({
@@ -27,7 +26,7 @@ const formSchema = z.object({
 export default function QRPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAllParticipants, setAvailableParticipants } = useParticipants();
+  const { setAllParticipants, setAvailableParticipants, allParticipants } = useParticipants();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,21 +48,26 @@ export default function QRPage() {
     setAvailableParticipants(prev => [...prev, newParticipant]);
     
     toast({
-      title: "Participant Added",
-      description: `${values.name} ${values.lastName} has been added to the raffle.`,
+      title: "You're in!",
+      description: `Welcome to the raffle, ${values.name} ${values.lastName}!`,
     });
-    router.push('/');
+    
+    // You can redirect or show a success message.
+    // For now, we'll just show a toast.
+    form.reset();
   }
 
   return (
-    <main className="flex flex-col items-center min-h-screen w-full p-4 md:p-8">
-       <Header />
+    <main className="flex flex-col items-center justify-center min-h-screen w-full p-4 md:p-8 bg-background">
        <div className="flex-grow flex flex-col items-center justify-center w-full">
         <div className="w-full max-w-md p-8 bg-card rounded-2xl shadow-2xl">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-card-foreground">Add Participant</h2>
+             <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-primary font-headline mb-4">
+                HypnoRaffle
+             </h1>
+            <h2 className="text-2xl font-bold text-card-foreground">Join the Raffle</h2>
             <p className="text-muted-foreground">
-              Manually add a new participant to the raffle. This simulates a QR code scan.
+              Enter your details below to get your ticket.
             </p>
           </div>
           <Form {...form}>
@@ -95,10 +99,7 @@ export default function QRPage() {
                 )}
               />
               <div className="flex gap-4 mt-4">
-                <Button type="button" variant="secondary" onClick={() => router.push('/')} className="w-full">
-                    Cancel
-                </Button>
-                <Button type="submit" className="w-full">Add to Raffle</Button>
+                <Button type="submit" className="w-full">Join Raffle</Button>
               </div>
             </form>
           </Form>
