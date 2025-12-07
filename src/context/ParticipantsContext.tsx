@@ -33,24 +33,12 @@ export function ParticipantsProvider({ children }: { children: ReactNode }) {
     if (firestoreParticipants) {
         const sortedParticipants = [...firestoreParticipants].sort((a, b) => a.displayName.localeCompare(b.displayName));
         setAllParticipants(sortedParticipants);
+        // Only set available participants if they are empty
+        if (availableParticipants.length === 0) {
+          setAvailableParticipants(sortedParticipants);
+        }
     }
   }, [firestoreParticipants]);
-
-  // Effect to reset available participants when all participants are drawn
-  // or to initialize it for the first time.
-  useEffect(() => {
-    if (allParticipants.length > 0) {
-      const availableIds = new Set(availableParticipants.map(p => p.id));
-      const newParticipants = allParticipants.filter(p => !availableIds.has(p.id));
-
-      if (newParticipants.length > 0) {
-         setAvailableParticipants(prev => [...prev, ...newParticipants].sort((a,b) => a.displayName.localeCompare(b.displayName)));
-      } else if (availableParticipants.length === 0) {
-        setAvailableParticipants(allParticipants);
-      }
-    }
-  }, [allParticipants]);
-
 
   return (
     <ParticipantsContext.Provider value={{ allParticipants, setAllParticipants, availableParticipants, setAvailableParticipants, loading }}>
