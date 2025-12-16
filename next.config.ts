@@ -2,7 +2,10 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  /* config options here */
   output: 'export',
+  // base path for github pages
+  basePath: process.env.NODE_ENV === 'production' ? '/raffle' : '',
 
   typescript: {
     ignoreBuildErrors: true,
