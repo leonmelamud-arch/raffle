@@ -10,14 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Copy, 
-  ExternalLink, 
-  Save, 
-  QrCode, 
-  Download, 
-  Trash2, 
-  Plus, 
+import {
+  Copy,
+  ExternalLink,
+  Save,
+  QrCode,
+  Download,
+  Trash2,
+  Plus,
   RefreshCw,
   Eye,
   Calendar,
@@ -55,66 +55,66 @@ const QR_STYLES: QRStyle[] = [
   { name: 'Pink', type: 'solid', fg: '#db2777', accent: '#ec4899' },
   { name: 'Lime', type: 'solid', fg: '#65a30d', accent: '#84cc16' },
   // Gradients
-  { 
-    name: 'Rainbow', 
-    type: 'gradient', 
-    fg: '#ef4444', 
+  {
+    name: 'Rainbow',
+    type: 'gradient',
+    fg: '#ef4444',
     accent: '#8b5cf6',
     gradient: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'],
     preview: 'linear-gradient(135deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #8b5cf6)'
   },
-  { 
-    name: 'Sunset', 
-    type: 'gradient', 
-    fg: '#f97316', 
+  {
+    name: 'Sunset',
+    type: 'gradient',
+    fg: '#f97316',
     accent: '#ec4899',
     gradient: ['#f97316', '#ef4444', '#ec4899'],
     preview: 'linear-gradient(135deg, #f97316, #ef4444, #ec4899)'
   },
-  { 
-    name: 'Ocean', 
-    type: 'gradient', 
-    fg: '#06b6d4', 
+  {
+    name: 'Ocean',
+    type: 'gradient',
+    fg: '#06b6d4',
     accent: '#3b82f6',
     gradient: ['#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1'],
     preview: 'linear-gradient(135deg, #06b6d4, #0ea5e9, #3b82f6, #6366f1)'
   },
-  { 
-    name: 'Forest', 
-    type: 'gradient', 
-    fg: '#22c55e', 
+  {
+    name: 'Forest',
+    type: 'gradient',
+    fg: '#22c55e',
     accent: '#14b8a6',
     gradient: ['#22c55e', '#10b981', '#14b8a6', '#06b6d4'],
     preview: 'linear-gradient(135deg, #22c55e, #10b981, #14b8a6)'
   },
-  { 
-    name: 'Fire', 
-    type: 'gradient', 
-    fg: '#ef4444', 
+  {
+    name: 'Fire',
+    type: 'gradient',
+    fg: '#ef4444',
     accent: '#f59e0b',
     gradient: ['#ef4444', '#f97316', '#f59e0b'],
     preview: 'linear-gradient(135deg, #ef4444, #f97316, #f59e0b)'
   },
-  { 
-    name: 'Aurora', 
-    type: 'gradient', 
-    fg: '#8b5cf6', 
+  {
+    name: 'Aurora',
+    type: 'gradient',
+    fg: '#8b5cf6',
     accent: '#06b6d4',
     gradient: ['#8b5cf6', '#6366f1', '#3b82f6', '#06b6d4', '#14b8a6'],
     preview: 'linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6, #06b6d4, #14b8a6)'
   },
-  { 
-    name: 'Berry', 
-    type: 'gradient', 
-    fg: '#ec4899', 
+  {
+    name: 'Berry',
+    type: 'gradient',
+    fg: '#ec4899',
     accent: '#a855f7',
     gradient: ['#ec4899', '#d946ef', '#a855f7'],
     preview: 'linear-gradient(135deg, #ec4899, #d946ef, #a855f7)'
   },
-  { 
-    name: 'Gold', 
-    type: 'gradient', 
-    fg: '#ca8a04', 
+  {
+    name: 'Gold',
+    type: 'gradient',
+    fg: '#ca8a04',
     accent: '#d97706',
     gradient: ['#fbbf24', '#f59e0b', '#d97706', '#b45309'],
     preview: 'linear-gradient(135deg, #fbbf24, #f59e0b, #d97706)'
@@ -307,7 +307,7 @@ export default function QRRefPage() {
     toast({ title: "Copied!", description: `${label} copied to clipboard.` });
   };
 
-  const getQrPageUrl = () => 
+  const getQrPageUrl = () =>
     typeof window !== 'undefined' ? `${window.location.origin}/qr-ref/${selectedQr?.slug}` : '';
 
   // Logo handling
@@ -389,9 +389,8 @@ export default function QRRefPage() {
                 qrRefs.map((qr) => (
                   <div
                     key={qr.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedQr?.id === qr.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
-                    }`}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${selectedQr?.id === qr.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                      }`}
                     onClick={() => handleSelectQr(qr)}
                   >
                     <div className="flex items-start justify-between">
@@ -523,39 +522,39 @@ export default function QRRefPage() {
                         <defs>
                           <linearGradient id="qr-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
                             {qrStyle.gradient.map((color, i) => (
-                              <stop 
-                                key={i} 
-                                offset={`${(i / (qrStyle.gradient!.length - 1)) * 100}%`} 
-                                stopColor={color} 
+                              <stop
+                                key={i}
+                                offset={`${(i / (qrStyle.gradient!.length - 1)) * 100}%`}
+                                stopColor={color}
                               />
                             ))}
                           </linearGradient>
                         </defs>
                       </svg>
                     )}
-                    <QRCode 
-                      id="qr-code-svg" 
-                      value={selectedQr.target_url} 
-                      size={200} 
-                      level="H" 
+                    <QRCode
+                      id="qr-code-svg"
+                      value={getQrPageUrl()}
+                      size={200}
+                      level="H"
                       fgColor={qrStyle.type === 'gradient' ? 'url(#qr-gradient)' : qrStyle.fg}
                     />
                     {/* Logo overlay in center */}
                     {logoUrl && (
-                      <div 
+                      <div
                         className="absolute inset-0 flex items-center justify-center"
                         style={{ pointerEvents: 'none' }}
                       >
-                        <div 
+                        <div
                           className={`bg-white p-1 shadow-md overflow-hidden ${logoShape === 'circle' ? 'rounded-full' : 'rounded-lg'}`}
                           style={{ width: `${60 * logoScale}px`, height: `${60 * logoScale}px` }}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img 
-                            src={logoUrl} 
-                            alt="Logo" 
+                          <img
+                            src={logoUrl}
+                            alt="Logo"
                             className={`w-full h-full object-cover ${logoShape === 'circle' ? 'rounded-full' : 'rounded'}`}
-                            style={{ 
+                            style={{
                               transform: `scale(${logoCrop})`,
                               transformOrigin: 'center'
                             }}
@@ -590,9 +589,9 @@ export default function QRRefPage() {
                         className="hidden"
                         id="logo-upload"
                       />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex-1"
                         onClick={() => fileInputRef.current?.click()}
                       >
@@ -601,16 +600,16 @@ export default function QRRefPage() {
                       </Button>
                       {logoUrl && (
                         <>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => setLogoShape(logoShape === 'circle' ? 'square' : 'circle')}
                             title={`Shape: ${logoShape}`}
                           >
                             {logoShape === 'circle' ? '○' : '□'}
                           </Button>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="icon"
                             className="h-8 w-8"
                             onClick={removeLogo}
@@ -662,9 +661,8 @@ export default function QRRefPage() {
                           <button
                             key={style.name}
                             onClick={() => setQrStyle(style)}
-                            className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                              qrStyle.name === style.name ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-foreground/20' : 'border-transparent'
-                            }`}
+                            className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${qrStyle.name === style.name ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-foreground/20' : 'border-transparent'
+                              }`}
                             style={{ backgroundColor: style.fg }}
                             title={style.name}
                           />
@@ -678,9 +676,8 @@ export default function QRRefPage() {
                           <button
                             key={style.name}
                             onClick={() => setQrStyle(style)}
-                            className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                              qrStyle.name === style.name ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-foreground/20' : 'border-transparent'
-                            }`}
+                            className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${qrStyle.name === style.name ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-foreground/20' : 'border-transparent'
+                              }`}
                             style={{ background: style.preview }}
                             title={style.name}
                           />

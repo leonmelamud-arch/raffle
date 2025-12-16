@@ -235,13 +235,15 @@ function createDecoratedSVG(
   const logoContainerSize = Math.round(baseLogoSize * logoScale); // Container resizes with logoScale
   const logoCenterX = padding + qrSize / 2;
   const logoCenterY = titleHeight + padding + qrSize / 2;
+  const logoInnerSize = logoContainerSize - 4; // Inner drawable area (after border)
   const logoClipPath = logoShape === 'circle' 
-    ? `<clipPath id="logoClip"><circle cx="${logoCenterX}" cy="${logoCenterY}" r="${logoContainerSize / 2 - 2}"/></clipPath>`
-    : `<clipPath id="logoClip"><rect x="${logoCenterX - logoContainerSize / 2 + 2}" y="${logoCenterY - logoContainerSize / 2 + 2}" width="${logoContainerSize - 4}" height="${logoContainerSize - 4}" rx="4"/></clipPath>`;
+    ? `<clipPath id="logoClip"><circle cx="${logoCenterX}" cy="${logoCenterY}" r="${logoInnerSize / 2}"/></clipPath>`
+    : `<clipPath id="logoClip"><rect x="${logoCenterX - logoInnerSize / 2}" y="${logoCenterY - logoInnerSize / 2}" width="${logoInnerSize}" height="${logoInnerSize}" rx="4"/></clipPath>`;
   
-  // Calculate scaled image size for zoom effect using logoCrop
-  const scaledImageSize = Math.round((logoContainerSize - 4) * logoCrop);
-  const imageOffset = (logoContainerSize - 4 - scaledImageSize) / 2;
+  // For crop/zoom: when logoCrop > 1, image should appear larger (zoomed in) so edges get cropped
+  // scaledImageSize is the size we draw the image at, clip-path cuts it to logoInnerSize
+  const scaledImageSize = Math.round(logoInnerSize * logoCrop);
+  const imageOffset = (logoInnerSize - scaledImageSize) / 2; // Negative when logoCrop > 1, centers the larger image
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}">
@@ -291,8 +293,8 @@ function createDecoratedSVG(
     stroke="${gradient?.[0] || accentColor}" 
     stroke-width="2"/>
   <image 
-    x="${logoCenterX - logoContainerSize / 2 + 2 + imageOffset}" 
-    y="${logoCenterY - logoContainerSize / 2 + 2 + imageOffset}" 
+    x="${logoCenterX - logoInnerSize / 2 + imageOffset}" 
+    y="${logoCenterY - logoInnerSize / 2 + imageOffset}" 
     width="${scaledImageSize}" 
     height="${scaledImageSize}" 
     xlink:href="${logoUrl}"
