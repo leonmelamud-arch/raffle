@@ -88,12 +88,12 @@ export default function QRRefRedirectPage() {
     // Update count
     supabase
       .from('qr_refs')
-      .update({ 
+      .update({
         scan_count: (data.scan_count || 0) + 1,
         last_scanned_at: new Date().toISOString()
       })
       .eq('id', data.id)
-      .then(() => {});
+      .then(() => { });
 
     // Insert detailed scan
     supabase.from('qr_scans').insert({
@@ -104,7 +104,7 @@ export default function QRRefRedirectPage() {
       referrer: document.referrer || null,
       language: navigator.language || null,
       ...geoData,
-    }).then(() => {});
+    }).then(() => { });
   };
 
   if (status === 'loading') {
@@ -172,4 +172,8 @@ export default function QRRefRedirectPage() {
       </Button>
     </StatusCard>
   );
+}
+
+export async function generateStaticParams() {
+  return [];
 }
