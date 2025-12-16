@@ -534,7 +534,7 @@ export default function QRRefPage() {
                     )}
                     <QRCode
                       id="qr-code-svg"
-                      value={getQrPageUrl()}
+                      value={selectedQr.target_url}
                       size={200}
                       level="H"
                       fgColor={qrStyle.type === 'gradient' ? 'url(#qr-gradient)' : qrStyle.fg}
@@ -697,21 +697,18 @@ export default function QRRefPage() {
                   </div>
 
                   <div className="w-full p-3 bg-muted rounded-lg">
-                    <Label className="text-xs text-muted-foreground">QR Page URL</Label>
+                    <Label className="text-xs text-muted-foreground">Target URL</Label>
                     <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs flex-1 truncate">{getQrPageUrl()}</code>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(getQrPageUrl(), 'URL')}>
+                      <code className="text-xs flex-1 truncate">{selectedQr.target_url}</code>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(selectedQr.target_url, 'URL')}>
                         <Copy className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 w-full">
+                  <div className="grid grid-cols-1 gap-2 w-full">
                     <Button variant="outline" onClick={() => copyToClipboard(selectedQr.target_url, 'Target URL')}>
                       <Link2 className="h-4 w-4 mr-2" />Copy URL
-                    </Button>
-                    <Button variant="outline" onClick={() => copyToClipboard(getQrPageUrl(), 'QR Page URL')}>
-                      <Copy className="h-4 w-4 mr-2" />Copy QR Page
                     </Button>
                   </div>
 
