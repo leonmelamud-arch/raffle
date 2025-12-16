@@ -4,16 +4,24 @@
 
 @layer base {
   :root {
-    --background: 45 95% 55%; /* Bumble Yellow */
-    --foreground: 0 0% 15%; /* Dark Gray for text */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 0 0% 15%; /* Dark Gray for text on cards */
+    --background: 45 95% 55%;
+    /* Bumble Yellow */
+    --foreground: 0 0% 15%;
+    /* Dark Gray for text */
+    --card: 0 0% 100%;
+    /* White */
+    --card-foreground: 0 0% 15%;
+    /* Dark Gray for text on cards */
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 15%;
-    --primary: 0 0% 15%; /* Dark Gray for primary actions */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 0 0% 90%; /* Light gray for secondary elements */
-    --secondary-foreground: 0 0% 15%; /* Dark Gray text on secondary */
+    --primary: 0 0% 15%;
+    /* Dark Gray for primary actions */
+    --primary-foreground: 0 0% 98%;
+    /* White text on primary */
+    --secondary: 0 0% 90%;
+    /* Light gray for secondary elements */
+    --secondary-foreground: 0 0% 15%;
+    /* Dark Gray text on secondary */
     --muted: 0 0% 90%;
     --muted-foreground: 0 0% 40%;
     --accent: 0 0% 95%;
@@ -30,17 +38,26 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
-    --background: 45 95% 55%; /* Bumble Yellow */
-    --foreground: 0 0% 15%; /* Dark Gray for text */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 0 0% 15%; /* Dark Gray for text on cards */
+    --background: 45 95% 55%;
+    /* Bumble Yellow */
+    --foreground: 0 0% 15%;
+    /* Dark Gray for text */
+    --card: 0 0% 100%;
+    /* White */
+    --card-foreground: 0 0% 15%;
+    /* Dark Gray for text on cards */
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 15%;
-    --primary: 0 0% 15%; /* Dark Gray for primary actions */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 0 0% 90%; /* Light gray for secondary elements */
-    --secondary-foreground: 0 0% 15%; /* Dark Gray text on secondary */
+    --primary: 0 0% 15%;
+    /* Dark Gray for primary actions */
+    --primary-foreground: 0 0% 98%;
+    /* White text on primary */
+    --secondary: 0 0% 90%;
+    /* Light gray for secondary elements */
+    --secondary-foreground: 0 0% 15%;
+    /* Dark Gray text on secondary */
     --muted: 0 0% 90%;
     --muted-foreground: 0 0% 40%;
     --accent: 0 0% 95%;
@@ -62,6 +79,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
