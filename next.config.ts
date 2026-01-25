@@ -1,10 +1,11 @@
 import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  /* config options here */
-  output: 'export',
+// Use standalone output for Docker, static export for GitHub Pages
+const isDocker = process.env.DOCKER_BUILD === 'true';
 
+const nextConfig: NextConfig = {
+  // Use 'standalone' for Docker deployments, 'export' for static hosting
+  output: isDocker ? 'standalone' : 'export',
 
   typescript: {
     ignoreBuildErrors: true,

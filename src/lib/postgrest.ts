@@ -4,7 +4,8 @@
  * for easy migration from Supabase to PostgREST
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.robot-new.com';
+// Default to localhost:3001 for Docker development
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'is' | 'in';
 

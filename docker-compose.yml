@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: raffle-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-raffle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raffle_secret_123}
+      POSTGRES_DB: ${POSTGRES_DB:-raffle_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raffle} -d ${POSTGRES_DB:-raffle_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================
+  # PostgREST API Server
+  # ===========================================
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: raffle-postgrest
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-raffle}:${POSTGRES_PASSWORD:-raffle_secret_123}@postgres:5432/${POSTGRES_DB:-raffle_db}
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3001
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+    ports:
+      - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===========================================
+  # Development service with hot-reload
+  # ===========================================
+  raffle-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: raffle-dev
+    ports:
+      - "9002:9002"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - postgrest
+    profiles:
+      - dev
+
+  # ===========================================
+  # Production service
+  # ===========================================
+  raffle-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://postgrest:3000
+        - NEXT_PUBLIC_WINNER_WEBHOOK_URL=${NEXT_PUBLIC_WINNER_WEBHOOK_URL}
+    container_name: raffle-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - postgrest
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  # ===========================================
+  # Cloudflare Tunnel for secure internet exposure
+  # ===========================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: raffle-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - raffle-prod
+    restart: unless-stopped
+    profiles:
+      - tunnel
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    driver: bridge
