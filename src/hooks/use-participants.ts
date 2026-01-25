@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Participant } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/postgrest';
+
+// Polling interval in milliseconds (3 seconds)
+const POLLING_INTERVAL = 3000;
 
 export function useParticipants(sessionId: string | null) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchParticipants = useCallback(async () => {
     if (!sessionId) {
@@ -16,16 +20,15 @@ export function useParticipants(sessionId: string | null) {
       return;
     }
 
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('participants')
+    const { data, error: fetchError } = await db
+      .from<Participant>('participants')
       .select('*')
       .eq('session_id', sessionId);
 
-    if (error) {
-      console.error('Error fetching participants:', error);
-      setError(error as any);
-    } else {
+    if (fetchError) {
+      console.error('Error fetching participants:', fetchError);
+      setError(fetchError);
+    } else if (data) {
       setParticipants(data as Participant[]);
     }
     setLoading(false);
@@ -38,28 +41,21 @@ export function useParticipants(sessionId: string | null) {
       return;
     }
 
+    // Initial fetch
+    setLoading(true);
     fetchParticipants();
 
-    // Subscribe to changes for this specific session
-    const channel = supabase
-      .channel(`participants-${sessionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'participants',
-          filter: `session_id=eq.${sessionId}`
-        },
-        (payload) => {
-          // Refetch to keep in sync
-          fetchParticipants();
-        }
-      )
-      .subscribe();
+    // Set up polling to replace real-time subscriptions
+    pollingRef.current = setInterval(() => {
+      fetchParticipants();
+    }, POLLING_INTERVAL);
 
+    // Cleanup polling on unmount or session change
     return () => {
-      supabase.removeChannel(channel);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     };
   }, [sessionId, fetchParticipants]);
 

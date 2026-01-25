@@ -27,7 +27,7 @@ import {
   X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/postgrest';
 import { isExpired, generateSlug, downloadQRCode, QRDownloadOptions } from '@/lib/qr-utils';
 import { QrRef } from '@/types';
 
@@ -158,7 +158,7 @@ export default function QRRefPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [qrStyle, setQrStyle] = useState<QRStyle>(QR_STYLES[0]);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>('/linkedin-qr-leon.svg');
   const [logoShape, setLogoShape] = useState<'square' | 'circle'>('circle');
   const [logoScale, setLogoScale] = useState<number>(1.0); // Border/container size: 0.5 to 1.5
   const [logoCrop, setLogoCrop] = useState<number>(1.0); // Image crop/zoom: 0.5 to 1.5
@@ -171,16 +171,16 @@ export default function QRRefPage() {
 
   const loadQrRefs = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('qr_refs')
+    const { data, error } = await db
+      .from<QrRef>('qr_refs')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
       toast({ title: "Error", description: "Failed to load QR codes.", variant: "destructive" });
     } else {
-      setQrRefs(data || []);
-      if (data?.length && !selectedQr) setSelectedQr(data[0]);
+      setQrRefs((data as QrRef[]) || []);
+      if ((data as QrRef[])?.length && !selectedQr) setSelectedQr((data as QrRef[])[0]);
     }
     setIsLoading(false);
   };
@@ -221,8 +221,8 @@ export default function QRRefPage() {
     if (!validateForm()) return;
 
     setIsSaving(true);
-    const { data, error } = await supabase
-      .from('qr_refs')
+    const { data, error } = await db
+      .from<QrRef>('qr_refs')
       .insert({
         name: formData.name,
         slug: formData.slug,
@@ -232,20 +232,20 @@ export default function QRRefPage() {
         is_active: formData.is_active,
         expires_at: formData.expires_at || null,
       })
-      .select()
+      .returning('*')
       .single();
 
     setIsSaving(false);
 
     if (error) {
-      const msg = error.code === '23505' ? "Slug already exists." : "Failed to create QR code.";
+      const msg = error.message?.includes('duplicate') ? "Slug already exists." : "Failed to create QR code.";
       toast({ title: "Error", description: msg, variant: "destructive" });
     } else {
       toast({ title: "Created!", description: "Your QR code has been saved." });
       await loadQrRefs();
-      setSelectedQr(data);
+      setSelectedQr(data as QrRef);
       setIsCreating(false);
-      setFormData(qrToForm(data));
+      setFormData(qrToForm(data as QrRef));
     }
   };
 
@@ -253,8 +253,8 @@ export default function QRRefPage() {
     if (!selectedQr || !validateForm()) return;
 
     setIsSaving(true);
-    const { data, error } = await supabase
-      .from('qr_refs')
+    const { data, error } = await db
+      .from<QrRef>('qr_refs')
       .update({
         name: formData.name,
         slug: formData.slug,
@@ -265,7 +265,7 @@ export default function QRRefPage() {
         expires_at: formData.expires_at || null,
       })
       .eq('id', selectedQr.id)
-      .select()
+      .returning('*')
       .single();
 
     setIsSaving(false);
@@ -274,15 +274,15 @@ export default function QRRefPage() {
       toast({ title: "Error", description: "Failed to update QR code.", variant: "destructive" });
     } else {
       toast({ title: "Updated!", description: "Your QR code has been updated." });
-      setQrRefs(prev => prev.map(q => q.id === data.id ? data : q));
-      setSelectedQr(data);
+      setQrRefs(prev => prev.map(q => q.id === (data as QrRef).id ? (data as QrRef) : q));
+      setSelectedQr(data as QrRef);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this QR code?')) return;
 
-    const { error } = await supabase.from('qr_refs').delete().eq('id', id);
+    const { error } = await db.from('qr_refs').delete().eq('id', id);
 
     if (error) {
       toast({ title: "Error", description: "Failed to delete QR code.", variant: "destructive" });

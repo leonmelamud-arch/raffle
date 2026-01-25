@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/postgrest";
 import isEmail from 'validator/lib/isEmail';
 
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ function QRForm() {
 
     // Validate that the session exists
     const validateSession = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('sessions')
         .select('id')
         .eq('id', sid)
@@ -121,7 +121,7 @@ function QRForm() {
     }
 
     // Check for duplicate email in this session
-    const { data: existingParticipant, error: checkError } = await supabase
+    const { data: existingParticipant, error: checkError } = await db
       .from('participants')
       .select('id')
       .eq('session_id', sessionId)
@@ -147,12 +147,12 @@ function QRForm() {
       email: values.email,
     };
 
-    const { error } = await supabase
+    const { error } = await db
       .from('participants')
       .insert(newParticipant);
 
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('PostgREST error:', error);
       toast({
         title: "Error",
         description: "Could not add you to the raffle. Please try again.",

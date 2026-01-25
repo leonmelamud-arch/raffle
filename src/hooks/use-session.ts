@@ -2,17 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Session } from '@/types';
-import { supabase } from '@/lib/supabase';
-
-// Generate a short, human-readable session ID
-function generateShortId(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like 0, O, I, 1
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
+import { db } from '@/lib/postgrest';
 
 export function useSession() {
     const [session, setSession] = useState<Session | null>(null);
@@ -27,13 +17,13 @@ export function useSession() {
 
             if (storedSessionId) {
                 // Try to fetch the existing session
-                const { data, error } = await supabase
-                    .from('sessions')
+                const { data, error: fetchError } = await db
+                    .from<Session>('sessions')
                     .select('*')
                     .eq('id', storedSessionId)
                     .single();
 
-                if (data && !error) {
+                if (data && !fetchError) {
                     setSession(data as Session);
                     setLoading(false);
                     return;
@@ -54,13 +44,13 @@ export function useSession() {
         setError(null);
 
         try {
-            const { data, error } = await supabase
-                .from('sessions')
+            const { data, error: insertError } = await db
+                .from<Session>('sessions')
                 .insert({ is_active: true })
-                .select()
+                .returning('*')
                 .single();
 
-            if (error) throw error;
+            if (insertError) throw insertError;
 
             const newSession = data as Session;
             setSession(newSession);
@@ -86,13 +76,13 @@ export function useSession() {
 
         try {
             // Try to fetch the target session
-            const { data, error } = await supabase
-                .from('sessions')
+            const { data, error: fetchError } = await db
+                .from<Session>('sessions')
                 .select('*')
                 .eq('id', targetSessionId)
                 .single();
 
-            if (error || !data) {
+            if (fetchError || !data) {
                 setLoading(false);
                 return false;
             }

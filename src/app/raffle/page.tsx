@@ -15,9 +15,9 @@ import { useSessionContext } from '@/context/SessionContext';
 import { Confetti } from '@/components/raffle/Confetti';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/postgrest';
 
-const initialLogo = PlaceHolderImages.find(img => img.id === 'mcp-logo');
+const initialLogo = PlaceHolderImages.find(img => img.id === 'leon-linkedin');
 
 export default function Home() {
   const {
@@ -68,9 +68,9 @@ export default function Home() {
           email: participant.email,
         }));
 
-        const { error } = await supabase.from('participants').insert(participantsToInsert);
+        const { error: insertError } = await db.from('participants').insert(participantsToInsert);
 
-        if (error) throw error;
+        if (insertError) throw insertError;
 
         // Refresh participants list immediately
         await refetch();
@@ -171,13 +171,13 @@ export default function Home() {
     if (winner) {
       // Mark winner in database
       try {
-        const { error } = await supabase
+        const { error: updateError } = await db
           .from('participants')
           .update({ won: true })
           .eq('id', winner.id);
-        
-        if (error) {
-          console.error('Failed to mark winner in DB:', error);
+
+        if (updateError) {
+          console.error('Failed to mark winner in DB:', updateError);
         }
       } catch (err) {
         console.error('Failed to mark winner in DB:', err);
@@ -194,10 +194,10 @@ export default function Home() {
         });
         // Reset all winners in DB
         try {
-          await supabase
+          await db
             .from('participants')
             .update({ won: false })
-            .eq('session_id', sessionId);
+            .eq('session_id', sessionId!);
         } catch (err) {
           console.error('Failed to reset winners in DB:', err);
         }
@@ -219,10 +219,10 @@ export default function Home() {
   const handleResetRaffle = async () => {
     // Reset all winners in DB
     try {
-      await supabase
+      await db
         .from('participants')
         .update({ won: false })
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId!);
     } catch (err) {
       console.error('Failed to reset winners in DB:', err);
     }
