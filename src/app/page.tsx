@@ -1,6 +1,6 @@
-
 import Link from "next/link";
 import { QrCode, Ticket } from "lucide-react";
+import { UserProfile } from "@/components/auth/user-profile";
 
 export default function Home() {
     return (
@@ -11,6 +11,10 @@ export default function Home() {
                     <p className="text-muted-foreground text-lg">
                         Select a tool to get started
                     </p>
+                </div>
+
+                <div className="absolute top-4 right-4">
+                    <UserProfile />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,10 +1,10 @@
 {
   "placeholderImages": [
     {
-      "id": "mcp-logo",
-      "description": "MCP Community Logo",
-      "imageUrl": "/raffle/mcp_community.svg",
-      "imageHint": "MCP Israel Community"
+      "id": "leon-linkedin",
+      "description": "Leon's LinkedIn",
+      "imageUrl": "/linkedin-qr-leon.svg",
+      "imageHint": "Leon Melamud LinkedIn"
     }
   ]
 }
