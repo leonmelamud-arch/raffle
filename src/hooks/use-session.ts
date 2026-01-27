@@ -77,12 +77,14 @@ export function useSession(): UseSessionReturn {
           .select('*')
           .eq('session_id', id)
           .single();
-        qrShortCode = qrData ? (qrData as QrRef).short_code : null;
+        const qr = qrData as unknown as QrRef | null;
+        qrShortCode = qr ? qr.short_code : null;
       } catch {
         // QR refs table might not exist or have different schema - that's ok
       }
 
-      setSession(sessionData as Session);
+      const session = sessionData as unknown as Session | null;
+      setSession(session);
       setSessionId(id);
       setShortCode(qrShortCode);
       localStorage.setItem(SESSION_STORAGE_KEY, id);
@@ -150,7 +152,7 @@ export function useSession(): UseSessionReturn {
         // Try with name field too
         const { data: data2, error: error2 } = await db
           .from<Session>('sessions')
-          .insert({ name: name || null, is_active: true })
+          .insert({ name: name || undefined, is_active: true })
           .select()
           .single();
 

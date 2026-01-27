@@ -15,6 +15,7 @@ import { useSessionContext } from '../../context/SessionContext';
 import { Confetti } from '../../components/raffle/Confetti';
 import Image from 'next/image';
 import { db } from '../../lib/postgrest';
+import placeholderData from '../../lib/placeholder-images.json';
 
 interface AvailableImage {
   id: string;
@@ -41,9 +42,9 @@ export default function Home() {
   const [isRainingLogos, setIsRainingLogos] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
-  const [availableImages, setAvailableImages] = useState<AvailableImage[]>([
-    { id: 'linkedin-qr-leon', src: '/images/linkedin-qr-leon.svg', alt: 'LinkedIn QR Code' }
-  ]);
+  const [availableImages, setAvailableImages] = useState<AvailableImage[]>(
+    placeholderData.images || [{ id: 'linkedin-qr-leon', src: '/images/linkedin-qr-leon.svg', alt: 'LinkedIn QR Code' }]
+  );
   const [imagesLoading, setImagesLoading] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,11 +57,12 @@ export default function Home() {
     setIsRainingLogos(false);
   }, [sessionId]);
 
-  // Fetch available images from API
+  // Fetch available images from API (with fallback to static list)
   const fetchImages = async () => {
     setImagesLoading(true);
     try {
       const response = await fetch('/api/images');
+      if (!response.ok) throw new Error('API not available');
       const data = await response.json();
       if (data.images && data.images.length > 0) {
         setAvailableImages(data.images);
@@ -70,19 +72,33 @@ export default function Home() {
           description: `Found ${data.images.length} images.`,
         });
       } else {
-        toast({
-          title: "No Images",
-          description: "No images found in /public/images folder.",
-          variant: "destructive"
-        });
+        // Fallback to static list
+        const staticImages = placeholderData.images || [];
+        if (staticImages.length > 0) {
+          setAvailableImages(staticImages);
+          toast({
+            title: "Using Static Images",
+            description: `Loaded ${staticImages.length} images from config.`,
+          });
+        } else {
+          toast({
+            title: "No Images",
+            description: "No images found.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
-      console.error('Failed to load images:', err);
-      toast({
-        title: "Load Failed",
-        description: "Could not fetch images.",
-        variant: "destructive"
-      });
+      console.error('Failed to load images from API, using static list:', err);
+      // Fallback to static list when API unavailable (GitHub Pages)
+      const staticImages = placeholderData.images || [];
+      if (staticImages.length > 0) {
+        setAvailableImages(staticImages);
+        toast({
+          title: "Images Loaded",
+          description: `Using ${staticImages.length} pre-configured images.`,
+        });
+      }
     } finally {
       setImagesLoading(false);
     }

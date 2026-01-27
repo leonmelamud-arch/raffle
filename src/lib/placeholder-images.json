@@ -6,5 +6,13 @@
       "imageUrl": "/linkedin-qr-leon.svg",
       "imageHint": "Leon Melamud LinkedIn"
     }
+  ],
+  "images": [
+    { "id": "Bandit", "src": "/images/Bandit.png", "alt": "Bandit" },
+    { "id": "ai-lead", "src": "/images/ai lead.png", "alt": "AI Lead" },
+    { "id": "linkedin-qr-leon", "src": "/images/linkedin-qr-leon.svg", "alt": "LinkedIn QR Leon" },
+    { "id": "linkedin_profile", "src": "/images/linkedin_profile.jpeg", "alt": "LinkedIn Profile" },
+    { "id": "mcp_community", "src": "/images/mcp_community.svg", "alt": "MCP Community" },
+    { "id": "n8n_LinkedIn_Profile_Cover", "src": "/images/n8n_LinkedIn_Profile_Cover.png", "alt": "n8n LinkedIn Profile Cover" }
   ]
 }

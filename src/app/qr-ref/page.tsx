@@ -141,12 +141,12 @@ const EMPTY_FORM = {
 
 // Convert QrRef to form data
 const qrToForm = (qr: QrRef) => ({
-  name: qr.name,
-  slug: qr.slug,
-  target_url: qr.target_url,
+  name: qr.name || '',
+  slug: qr.slug || '',
+  target_url: qr.target_url || '',
   description: qr.description || '',
   category: qr.category || 'personal',
-  is_active: qr.is_active,
+  is_active: qr.is_active ?? true,
   expires_at: qr.expires_at?.split('T')[0] || '',
 });
 
@@ -227,12 +227,12 @@ export default function QRRefPage() {
         name: formData.name,
         slug: formData.slug,
         target_url: formData.target_url,
-        description: formData.description || null,
+        description: formData.description || undefined,
         category: formData.category,
         is_active: formData.is_active,
-        expires_at: formData.expires_at || null,
+        expires_at: formData.expires_at || undefined,
       })
-      .returning('*')
+      .select('*')
       .single();
 
     setIsSaving(false);
@@ -259,13 +259,13 @@ export default function QRRefPage() {
         name: formData.name,
         slug: formData.slug,
         target_url: formData.target_url,
-        description: formData.description || null,
+        description: formData.description || undefined,
         category: formData.category,
         is_active: formData.is_active,
-        expires_at: formData.expires_at || null,
+        expires_at: formData.expires_at || undefined,
       })
       .eq('id', selectedQr.id)
-      .returning('*')
+      .select()
       .single();
 
     setIsSaving(false);
@@ -334,8 +334,8 @@ export default function QRRefPage() {
   const handleDownload = (format: 'png' | 'svg') => {
     if (!selectedQr) return;
     const options: QRDownloadOptions = {
-      slug: selectedQr.slug,
-      title: selectedQr.name,
+      slug: selectedQr.slug || '',
+      title: selectedQr.name || '',
       description: selectedQr.description || undefined,
       fgColor: qrStyle.fg,
       accentColor: qrStyle.accent,
@@ -395,13 +395,13 @@ export default function QRRefPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{qr.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">/{qr.slug}</div>
+                        <div className="font-medium truncate">{qr.name || 'Untitled'}</div>
+                        <div className="text-xs text-muted-foreground truncate">/{qr.slug || qr.short_code}</div>
                       </div>
                       <div className="flex items-center gap-1 ml-2">
                         {!qr.is_active && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
                         {isExpired(qr.expires_at) && <Badge variant="destructive" className="text-xs">Expired</Badge>}
-                        {qr.scan_count > 0 && (
+                        {(qr.scan_count ?? 0) > 0 && (
                           <Badge variant="outline" className="text-xs">
                             <Eye className="h-3 w-3 mr-1" />{qr.scan_count}
                           </Badge>
@@ -499,7 +499,7 @@ export default function QRRefPage() {
             <CardHeader>
               <CardTitle>QR Code Preview</CardTitle>
               <CardDescription>
-                {selectedQr ? (
+                {selectedQr && selectedQr.target_url ? (
                   <a href={selectedQr.target_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
                     {selectedQr.target_url.slice(0, 40)}{selectedQr.target_url.length > 40 && '...'}
                     <ExternalLink className="h-3 w-3" />
@@ -510,7 +510,7 @@ export default function QRRefPage() {
             <CardContent className="flex flex-col items-center space-y-4">
               {/* Title above QR */}
               {selectedQr && (
-                <h3 className="text-xl font-semibold text-center">{selectedQr.name}</h3>
+                <h3 className="text-xl font-semibold text-center">{selectedQr.name || 'Untitled'}</h3>
               )}
 
               <div className="bg-white p-6 rounded-xl shadow-lg relative overflow-hidden">
@@ -534,7 +534,7 @@ export default function QRRefPage() {
                     )}
                     <QRCode
                       id="qr-code-svg"
-                      value={selectedQr.target_url}
+                      value={selectedQr.target_url || ''}
                       size={200}
                       level="H"
                       fgColor={qrStyle.type === 'gradient' ? 'url(#qr-gradient)' : qrStyle.fg}
@@ -688,7 +688,7 @@ export default function QRRefPage() {
                   <div className="w-full grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center gap-2 p-2 bg-muted rounded">
                       <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      <span>{selectedQr.scan_count} scans</span>
+                      <span>{selectedQr.scan_count ?? 0} scans</span>
                     </div>
                     <div className="flex items-center gap-2 p-2 bg-muted rounded">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -699,15 +699,15 @@ export default function QRRefPage() {
                   <div className="w-full p-3 bg-muted rounded-lg">
                     <Label className="text-xs text-muted-foreground">Target URL</Label>
                     <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs flex-1 truncate">{selectedQr.target_url}</code>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(selectedQr.target_url, 'URL')}>
+                      <code className="text-xs flex-1 truncate">{selectedQr.target_url || ''}</code>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(selectedQr.target_url || '', 'URL')}>
                         <Copy className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 w-full">
-                    <Button variant="outline" onClick={() => copyToClipboard(selectedQr.target_url, 'Target URL')}>
+                    <Button variant="outline" onClick={() => copyToClipboard(selectedQr.target_url || '', 'Target URL')}>
                       <Link2 className="h-4 w-4 mr-2" />Copy URL
                     </Button>
                   </div>
