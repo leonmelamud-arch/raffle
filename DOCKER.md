@@ -1,360 +1,289 @@
-# Docker Setup & Secure Internet Exposure Guide
+# Docker Deployment Guide - HypnoRaffle
 
-This guide covers running HypnoRaffle locally with Docker (PostgreSQL + PostgREST) and exposing it securely to the internet.
-
-## Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed
-- A [Cloudflare](https://cloudflare.com/) account (free tier - for internet exposure)
+This guide covers running HypnoRaffle with Docker using PostgreSQL + PostgREST.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Docker Compose                           │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐  │
-│  │  Next.js    │───▶│  PostgREST  │───▶│   PostgreSQL    │  │
-│  │  (App)      │    │  (API)      │    │   (Database)    │  │
-│  │  :3000/9002 │    │  :3001      │    │   :5432         │  │
-│  └─────────────┘    └─────────────┘    └─────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Docker Compose                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌───────────────────────┐  │
+│  │   Next.js    │───▶│  PostgREST   │───▶│     PostgreSQL        │  │
+│  │    (App)     │    │    (API)     │    │     (Database)        │  │
+│  │  Port: 9002  │    │  Port: 3001  │    │     Port: 5432        │  │
+│  └──────────────┘    └──────────────┘    └───────────────────────┘  │
+│         │                                                            │
+│         ▼                                                            │
+│  ┌──────────────┐                                                    │
+│  │  Cloudflare  │  (Optional - for internet access)                 │
+│  │   Tunnel     │                                                    │
+│  └──────────────┘                                                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
 
-### 1. Set Up Environment Variables
+### 1. Clone and Setup
 
 ```bash
-# Copy the example environment file
+cd raffle-qr
 cp .env.example .env.local
 ```
 
-Edit `.env.local` (defaults work out of the box):
+### 2. Configure Environment
+
+Edit `.env.local` with secure passwords:
+
 ```bash
-# PostgreSQL (local Docker)
-POSTGRES_USER=raffle
-POSTGRES_PASSWORD=raffle_secret_123
-POSTGRES_DB=raffle_db
-
-# JWT Secret for PostgREST
-JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters
-
-# API URL
-NEXT_PUBLIC_API_URL=http://localhost:3001
-
-# Optional
-NEXT_PUBLIC_WINNER_WEBHOOK_URL=
-CLOUDFLARE_TUNNEL_TOKEN=
+# Generate secure passwords
+openssl rand -base64 24  # For POSTGRES_PASSWORD
+openssl rand -base64 32  # For JWT_SECRET
 ```
 
-### 2. Start Everything (Development Mode)
+### 3. Start Development
 
 ```bash
-# Start PostgreSQL, PostgREST, and Next.js dev server
+docker compose --profile dev up --build
+```
+
+### 4. Access the App
+
+- **Application**: http://localhost:9002
+- **API (PostgREST)**: http://localhost:3001
+- **Database**: localhost:5432
+
+## Profiles
+
+| Profile | Command | Use Case |
+|---------|---------|----------|
+| `dev` | `docker compose --profile dev up` | Development with hot-reload |
+| `prod` | `docker compose --profile prod up -d` | Production build |
+| `tunnel` | `docker compose --profile prod --profile tunnel up -d` | Production with internet access |
+
+## Services
+
+### PostgreSQL (hypnoraffle-db)
+
+- **Image**: postgres:16-alpine
+- **Port**: 5432
+- **Data**: Persisted in `postgres_data` volume
+- **Init Script**: `docker/init.sql`
+
+Connect directly:
+```bash
+docker exec -it hypnoraffle-db psql -U hypnoraffle -d hypnoraffle
+```
+
+### PostgREST (hypnoraffle-api)
+
+- **Image**: postgrest/postgrest:v12.0.2
+- **Port**: 3001
+- **Schema**: `api`
+- **Anonymous Role**: `web_anon`
+
+Test the API:
+```bash
+# Get all sessions
+curl http://localhost:3001/sessions
+
+# Get participants for a session
+curl "http://localhost:3001/participants?session_id=eq.<uuid>"
+
+# Create a participant
+curl -X POST http://localhost:3001/participants \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John","last_name":"Doe","display_name":"John D.","session_id":"<uuid>"}'
+```
+
+### Next.js App
+
+- **Dev Port**: 9002 (with hot-reload)
+- **Prod Port**: 9002 (standalone build)
+
+## Database Schema
+
+### Tables
+
+| Table | Purpose |
+|-------|---------|
+| `api.sessions` | Raffle sessions |
+| `api.participants` | Participants with `won` status |
+| `api.qr_refs` | QR code short links |
+| `api.rate_limits` | API rate limiting |
+
+### Row Level Security (RLS)
+
+All tables have RLS enabled:
+
+- **Anonymous users** (`web_anon`):
+  - Can SELECT active sessions
+  - Can INSERT participants (with `won=false`)
+  - Can SELECT participants
+  - Limited UPDATE/DELETE (dev mode only)
+
+- **Authenticated users** (`authenticated`):
+  - Full CRUD on all tables
+  - Required for admin operations
+
+## Security
+
+### JWT Authentication
+
+For admin operations, generate a JWT:
+
+```javascript
+// Header
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+// Payload
+{
+  "role": "authenticated",
+  "exp": 1735689600  // Expiration timestamp
+}
+```
+
+Sign with your `JWT_SECRET` and use:
+```bash
+curl http://localhost:3001/participants \
+  -H "Authorization: Bearer <your-jwt-token>" \
+  -X PATCH \
+  -d '{"won": true}'
+```
+
+### Production Hardening
+
+1. **Remove dev policies** from `docker/init.sql`:
+   - Delete policies ending with `(dev)`
+   
+2. **Set secure passwords** in `.env.local`
+
+3. **Use Cloudflare Tunnel** instead of exposing ports
+
+4. **Enable HTTPS** via Cloudflare
+
+## Cloudflare Tunnel Setup
+
+### 1. Create Tunnel
+
+1. Go to https://one.dash.cloudflare.com/
+2. Navigate to **Networks** → **Tunnels**
+3. Click **Create a tunnel**
+4. Name it `hypnoraffle`
+5. Copy the tunnel token
+
+### 2. Configure Tunnel
+
+In Cloudflare dashboard, add a public hostname:
+- **Subdomain**: `raffle` (or your choice)
+- **Domain**: Your Cloudflare domain
+- **Service**: `http://app-prod:3000`
+
+### 3. Add Token to Environment
+
+```bash
+# .env.local
+CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token-here
+```
+
+### 4. Start with Tunnel
+
+```bash
+docker compose --profile prod --profile tunnel up -d
+```
+
+Your app is now available at `https://raffle.yourdomain.com`
+
+## Common Commands
+
+```bash
+# Start development
 docker compose --profile dev up --build
 
-# Services:
-# - App:       http://localhost:9002
-# - API:       http://localhost:3001
-# - Database:  localhost:5432
-```
-
-### 3. Start in Production Mode
-
-```bash
-# Start all services in production mode
-docker compose --profile prod up --build -d
-
-# Services:
-# - App:       http://localhost:3000
-# - API:       http://localhost:3001
-# - Database:  localhost:5432
-```
-
-### Common Commands
-
-```bash
-# Stop all containers
-docker compose down
-
-# Stop and remove volumes (reset database)
-docker compose down -v
+# Start production
+docker compose --profile prod up -d --build
 
 # View logs
 docker compose logs -f
 
 # View specific service logs
-docker compose logs -f postgres
 docker compose logs -f postgrest
-docker compose logs -f raffle-dev
 
-# Rebuild after code changes
-docker compose --profile dev up --build
+# Stop all services
+docker compose down
 
-# Access PostgreSQL directly
-docker exec -it raffle-postgres psql -U raffle -d raffle_db
-
-# Check database tables
-docker exec -it raffle-postgres psql -U raffle -d raffle_db -c "\dt"
-```
-
----
-
-## Database Management
-
-### Connect to PostgreSQL
-
-```bash
-# Using Docker
-docker exec -it raffle-postgres psql -U raffle -d raffle_db
-
-# Using external client (pgAdmin, DBeaver, etc.)
-# Host: localhost
-# Port: 5432
-# User: raffle
-# Password: raffle_secret_123
-# Database: raffle_db
-```
-
-### Reset Database
-
-```bash
-# Stop containers and remove volume
+# Stop and remove volumes (DELETES DATA)
 docker compose down -v
 
-# Restart (database will be recreated from init.sql)
-docker compose --profile dev up --build
+# Rebuild without cache
+docker compose build --no-cache
+
+# Execute SQL
+docker exec -it hypnoraffle-db psql -U hypnoraffle -d hypnoraffle -c "SELECT * FROM api.participants;"
+
+# Backup database
+docker exec hypnoraffle-db pg_dump -U hypnoraffle hypnoraffle > backup.sql
+
+# Restore database
+cat backup.sql | docker exec -i hypnoraffle-db psql -U hypnoraffle -d hypnoraffle
 ```
-
-### View Data
-
-```bash
-# List all participants
-docker exec -it raffle-postgres psql -U raffle -d raffle_db -c "SELECT * FROM participants;"
-
-# List all sessions
-docker exec -it raffle-postgres psql -U raffle -d raffle_db -c "SELECT * FROM sessions;"
-```
-
----
-
-## 🔒 Secure Internet Exposure Options
-
-### Option 1: Cloudflare Tunnel (Recommended) ⭐
-
-**Why it's the safest:**
-- No ports opened on your router
-- DDoS protection included
-- Free SSL/TLS certificates
-- Hides your real IP address
-- Zero Trust security model
-
-**Setup Steps:**
-
-1. **Create a Cloudflare Account** (if you don't have one)
-   - Go to https://dash.cloudflare.com/
-   - Sign up for free
-
-2. **Set Up Cloudflare Zero Trust**
-   - Go to https://one.dash.cloudflare.com/
-   - Navigate to **Networks** → **Tunnels**
-   - Click **Create a tunnel**
-   - Choose **Cloudflared** connector type
-   - Name your tunnel (e.g., "hypnoraffle")
-   - Copy the tunnel token
-
-3. **Add Token to Environment**
-   ```bash
-   # In .env.local
-   CLOUDFLARE_TUNNEL_TOKEN=your_copied_token
-   ```
-
-4. **Configure the Tunnel Route**
-   - In Cloudflare dashboard, configure the public hostname
-   - Set the service to: `http://raffle-prod:3000`
-   - Add a subdomain (e.g., `raffle.yourdomain.com`)
-
-5. **Start with Tunnel**
-   ```bash
-   docker compose --profile prod --profile tunnel up -d
-   ```
-
-6. **Access your app** at `https://raffle.yourdomain.com`
-
-**Security Settings in Cloudflare (Optional but Recommended):**
-- Enable **Bot Fight Mode**
-- Set up **Access Policies** to require authentication
-- Enable **WAF** rules for additional protection
-
----
-
-### Option 2: Tailscale (Good for Private Access)
-
-Best for: Sharing with a small group without exposing to public internet.
-
-```bash
-# Install Tailscale
-brew install tailscale  # macOS
-# or visit: https://tailscale.com/download
-
-# Start Tailscale
-tailscale up
-
-# Share your app (only with your Tailscale network)
-# Access via your machine's Tailscale IP: http://100.x.x.x:3000
-```
-
----
-
-### Option 3: ngrok (Quick Testing Only)
-
-⚠️ **Not recommended for production** - Use only for quick demos.
-
-```bash
-# Install ngrok
-brew install ngrok  # macOS
-
-# Expose local port
-ngrok http 3000
-
-# You'll get a temporary URL like: https://abc123.ngrok.io
-```
-
-**Security Warning:** ngrok URLs are public and discoverable.
-
----
-
-## 🛡️ Security Best Practices
-
-### 1. Never Expose Ports Directly
-❌ **DON'T** open ports on your router (port forwarding)
-✅ **DO** use tunneling solutions (Cloudflare, Tailscale)
-
-### 2. Environment Variables
-- Never commit `.env.local` to git (it's already in `.gitignore`)
-- Use strong, unique passwords for PostgreSQL
-- Change the default `JWT_SECRET`
-
-### 3. Database Security
-- PostgreSQL is only exposed locally (127.0.0.1:5432)
-- PostgREST uses role-based access (web_anon role)
-- Change default passwords in production
-
-### 4. Rate Limiting
-Consider adding rate limiting in Cloudflare:
-- Go to **Security** → **WAF** → **Rate limiting rules**
-- Create rules to limit requests per IP
-
-### 5. Access Control with Cloudflare Zero Trust
-For private raffles:
-1. Go to **Access** → **Applications**
-2. Add your tunnel hostname
-3. Create a policy requiring authentication
-
-### 6. Keep Docker Updated
-```bash
-# Update Docker Desktop regularly
-docker system prune -af  # Clean unused images
-```
-
----
 
 ## Troubleshooting
 
-### PostgreSQL won't start
+### PostgREST won't start
+
+Check PostgreSQL is healthy:
 ```bash
-# Check logs
 docker compose logs postgres
-
-# Reset database
-docker compose down -v
-docker compose --profile dev up --build
 ```
 
-### PostgREST connection refused
+Verify init.sql ran correctly:
 ```bash
-# Check if postgres is healthy
-docker compose ps
-
-# Wait for postgres to be ready, then restart postgrest
-docker compose restart postgrest
+docker exec -it hypnoraffle-db psql -U hypnoraffle -d hypnoraffle -c "\dt api.*"
 ```
 
-### API returns 404
+### CORS errors
+
+Add your domain to `CORS_ORIGINS` in `.env.local`:
 ```bash
-# Verify tables exist
-docker exec -it raffle-postgres psql -U raffle -d raffle_db -c "\dt"
-
-# Re-run init script if needed
-docker compose down -v
-docker compose --profile dev up --build
+CORS_ORIGINS=http://localhost:9002,https://raffle.yourdomain.com
 ```
 
-### Container won't start
-```bash
-# Check logs
-docker compose logs raffle-prod
+### Connection refused to API
 
-# Verify environment variables are set
-docker compose config
+Ensure PostgREST is using the correct internal URL:
+- From browser: `http://localhost:3001`
+- From app container: `http://postgrest:3000`
+
+### Database data lost
+
+Data is stored in Docker volume. If you ran `docker compose down -v`, the volume was deleted. Use regular `docker compose down` to preserve data.
+
+## Migrating from Supabase
+
+The PostgREST client (`src/lib/postgrest.ts`) mirrors the Supabase API:
+
+```typescript
+// Before (Supabase)
+import { supabase } from '@/lib/supabase';
+const { data } = await supabase.from('participants').select('*');
+
+// After (PostgREST) - Same API!
+import { db } from '@/lib/supabase';
+const { data } = await db.from('participants').select('*');
 ```
 
-### Cloudflare Tunnel not connecting
-```bash
-# Check tunnel status
-docker compose logs cloudflared
+The main difference: no real-time subscriptions. Use polling instead:
 
-# Verify token is correct in .env.local
+```typescript
+// Poll every 2 seconds
+useEffect(() => {
+  const interval = setInterval(fetchParticipants, 2000);
+  return () => clearInterval(interval);
+}, []);
 ```
-
-### Build fails
-```bash
-# Clear Docker cache
-docker builder prune -af
-
-# Rebuild
-docker compose --profile prod build --no-cache
-```
-
----
-
-## Full Architecture with Internet Exposure
-
-```
-Internet Users
-       │
-       ▼
-┌─────────────────┐
-│  Cloudflare     │  ◄── DDoS Protection, WAF, SSL
-│  Edge Network   │
-└────────┬────────┘
-         │ (Encrypted Tunnel)
-         ▼
-┌─────────────────────────────────────────────────────┐
-│                 Docker Compose                       │
-│  ┌──────────┐                                        │
-│  │cloudflared│ ◄── Tunnel connector                 │
-│  └─────┬─────┘                                       │
-│        │ (Internal Network)                          │
-│        ▼                                             │
-│  ┌──────────┐    ┌──────────┐    ┌──────────────┐   │
-│  │ Next.js  │───▶│PostgREST │───▶│ PostgreSQL   │   │
-│  │ (App)    │    │ (API)    │    │ (Database)   │   │
-│  └──────────┘    └──────────┘    └──────────────┘   │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-## Cost Summary
-
-| Service | Free Tier | Notes |
-|---------|-----------|-------|
-| Docker | ✅ Free | Docker Desktop is free for personal use |
-| PostgreSQL | ✅ Free | Local Docker container |
-| PostgREST | ✅ Free | Local Docker container |
-| Cloudflare | ✅ Free | Unlimited tunnels, basic protection |
-| Tailscale | ✅ Free | Up to 100 devices |
-
-**Total: $0/month** for personal/small-scale use!

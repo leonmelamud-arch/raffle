@@ -1,59 +1,53 @@
-# Build stage
-FROM node:20-alpine AS builder
-
+# Production Dockerfile - Multi-stage build
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+RUN apk add --no-cache libc6-compat
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Copy source code
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
 COPY . .
 
-# Set build-time environment variables (will be overridden at runtime)
-ARG NEXT_PUBLIC_API_URL
+# Build arguments for environment variables
+ARG NEXT_PUBLIC_POSTGREST_URL
+ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_WINNER_WEBHOOK_URL
 
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_POSTGREST_URL=$NEXT_PUBLIC_POSTGREST_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_WINNER_WEBHOOK_URL=$NEXT_PUBLIC_WINNER_WEBHOOK_URL
 
-# Build the application (using standalone output for Docker)
-ENV DOCKER_BUILD=true
+# Build the application
 RUN npm run build
 
-# Production stage
+# Stage 3: Runner
 FROM node:20-alpine AS runner
-
 WORKDIR /app
 
-# Create non-root user for security
+ENV NODE_ENV=production
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
+# Copy built assets
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Set proper permissions
-RUN chown -R nextjs:nodejs /app
-
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Set runtime environment
-ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
-
-# Start the application
 CMD ["node", "server.js"]

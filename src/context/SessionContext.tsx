@@ -1,16 +1,18 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import type { Session } from '@/types';
-import { useSession as useSessionHook } from '@/hooks/use-session';
+import type { Session } from '../types';
+import { useSession as useSessionHook } from '../hooks/use-session';
 
 interface SessionContextType {
     session: Session | null;
     sessionId: string | null;
+    shortCode: string | null;
     loading: boolean;
     error: Error | null;
-    startNewSession: () => Promise<void>;
-    switchToSession: (targetSessionId: string) => Promise<boolean>;
+    createSession: (name?: string) => Promise<{ sessionId: string; shortCode: string } | null>;
+    loadSession: (sessionId: string) => Promise<void>;
+    clearSession: () => void;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);

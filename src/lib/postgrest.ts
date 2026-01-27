@@ -1,11 +1,22 @@
 /**
- * PostgREST Client
- * A lightweight REST client that mimics Supabase's query builder API
- * for easy migration from Supabase to PostgREST
+ * PostgREST Client for HypnoRaffle
+ * Replaces Supabase client for local Docker deployment
  */
 
-// Default to localhost:3001 for Docker development
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const POSTGREST_URL = process.env.NEXT_PUBLIC_POSTGREST_URL || 'http://localhost:3001';
+
+interface PostgrestError {
+  message: string;
+  details: string;
+  hint: string;
+  code: string;
+}
+
+interface PostgrestResponse<T> {
+  data: T | null;
+  error: PostgrestError | null;
+  count?: number;
+}
 
 type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'is' | 'in';
 
@@ -15,224 +26,403 @@ interface QueryFilter {
   value: string | number | boolean | null | (string | number)[];
 }
 
-interface QueryOptions {
-  filters: QueryFilter[];
-  orderBy?: { column: string; ascending: boolean };
-  limit?: number;
-  single?: boolean;
-  select?: string;
-}
-
-class PostgrestQueryBuilder<T = Record<string, unknown>> {
+class PostgrestQueryBuilder<T> {
   private table: string;
-  private options: QueryOptions = { filters: [] };
-  private method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET';
-  private body: Record<string, unknown> | Record<string, unknown>[] | null = null;
-  private returnData = false;
+  private selectColumns: string = '*';
+  private filters: QueryFilter[] = [];
+  private orderColumn?: string;
+  private orderAscending: boolean = true;
+  private limitCount?: number;
+  private singleRow: boolean = false;
 
   constructor(table: string) {
     this.table = table;
   }
 
   select(columns: string = '*'): this {
-    this.options.select = columns;
-    this.method = 'GET';
-    return this;
-  }
-
-  insert(data: Record<string, unknown> | Record<string, unknown>[]): this {
-    this.method = 'POST';
-    this.body = data;
-    this.returnData = true;
-    return this;
-  }
-
-  update(data: Record<string, unknown>): this {
-    this.method = 'PATCH';
-    this.body = data;
-    this.returnData = true;
-    return this;
-  }
-
-  delete(): this {
-    this.method = 'DELETE';
+    this.selectColumns = columns;
     return this;
   }
 
   eq(column: string, value: string | number | boolean): this {
-    this.options.filters.push({ column, operator: 'eq', value });
+    this.filters.push({ column, operator: 'eq', value });
     return this;
   }
 
   neq(column: string, value: string | number | boolean): this {
-    this.options.filters.push({ column, operator: 'neq', value });
-    return this;
-  }
-
-  gt(column: string, value: string | number): this {
-    this.options.filters.push({ column, operator: 'gt', value });
-    return this;
-  }
-
-  gte(column: string, value: string | number): this {
-    this.options.filters.push({ column, operator: 'gte', value });
-    return this;
-  }
-
-  lt(column: string, value: string | number): this {
-    this.options.filters.push({ column, operator: 'lt', value });
-    return this;
-  }
-
-  lte(column: string, value: string | number): this {
-    this.options.filters.push({ column, operator: 'lte', value });
-    return this;
-  }
-
-  like(column: string, value: string): this {
-    this.options.filters.push({ column, operator: 'like', value });
-    return this;
-  }
-
-  ilike(column: string, value: string): this {
-    this.options.filters.push({ column, operator: 'ilike', value });
+    this.filters.push({ column, operator: 'neq', value });
     return this;
   }
 
   is(column: string, value: null | boolean): this {
-    this.options.filters.push({ column, operator: 'is', value });
+    this.filters.push({ column, operator: 'is', value });
     return this;
   }
 
   in(column: string, values: (string | number)[]): this {
-    this.options.filters.push({ column, operator: 'in', value: values });
+    this.filters.push({ column, operator: 'in', value: values });
     return this;
   }
 
   order(column: string, options?: { ascending?: boolean }): this {
-    this.options.orderBy = {
-      column,
-      ascending: options?.ascending ?? true
-    };
+    this.orderColumn = column;
+    this.orderAscending = options?.ascending ?? true;
     return this;
   }
 
   limit(count: number): this {
-    this.options.limit = count;
+    this.limitCount = count;
     return this;
   }
 
   single(): this {
-    this.options.single = true;
-    this.options.limit = 1;
-    return this;
-  }
-
-  // Alias for chaining after insert/update to get the data back
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  returning(_columns: string = '*'): this {
-    this.returnData = true;
+    this.singleRow = true;
     return this;
   }
 
   private buildUrl(): string {
-    const url = new URL(`${API_URL}/${this.table}`);
-
-    // Add select parameter
-    if (this.options.select) {
-      url.searchParams.set('select', this.options.select);
-    }
-
+    const url = new URL(`${POSTGREST_URL}/${this.table}`);
+    
+    // Add select
+    url.searchParams.set('select', this.selectColumns);
+    
     // Add filters
-    for (const filter of this.options.filters) {
-      let value: string;
+    for (const filter of this.filters) {
       if (filter.operator === 'in' && Array.isArray(filter.value)) {
-        value = `(${filter.value.join(',')})`;
-      } else if (filter.value === null) {
-        value = 'null';
+        url.searchParams.set(filter.column, `in.(${filter.value.join(',')})`);
+      } else if (filter.operator === 'is') {
+        url.searchParams.set(filter.column, `is.${filter.value}`);
       } else {
-        value = String(filter.value);
+        url.searchParams.set(filter.column, `${filter.operator}.${filter.value}`);
       }
-      url.searchParams.set(filter.column, `${filter.operator}.${value}`);
     }
-
+    
     // Add order
-    if (this.options.orderBy) {
-      const direction = this.options.orderBy.ascending ? 'asc' : 'desc';
-      url.searchParams.set('order', `${this.options.orderBy.column}.${direction}`);
+    if (this.orderColumn) {
+      url.searchParams.set('order', `${this.orderColumn}.${this.orderAscending ? 'asc' : 'desc'}`);
     }
-
+    
     // Add limit
-    if (this.options.limit) {
-      url.searchParams.set('limit', String(this.options.limit));
+    if (this.limitCount) {
+      url.searchParams.set('limit', this.limitCount.toString());
     }
-
+    
     return url.toString();
   }
 
-  async execute(): Promise<{ data: T[] | T | null; error: Error | null }> {
+  async then<TResult>(
+    onfulfilled?: (value: PostgrestResponse<T[]>) => TResult | PromiseLike<TResult>
+  ): Promise<TResult> {
+    const result = await this.execute();
+    return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
+  }
+
+  private async execute(): Promise<PostgrestResponse<T[] | T | null>> {
     try {
-      const url = this.buildUrl();
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       };
 
-      // For insert/update with return, add Prefer header
-      if (this.returnData && (this.method === 'POST' || this.method === 'PATCH')) {
-        headers['Prefer'] = 'return=representation';
+      if (this.singleRow) {
+        headers['Accept'] = 'application/vnd.pgrst.object+json';
       }
 
-      const response = await fetch(url, {
-        method: this.method,
+      const response = await fetch(this.buildUrl(), {
+        method: 'GET',
         headers,
-        body: this.body ? JSON.stringify(this.body) : undefined,
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`PostgREST error: ${response.status} - ${errorText}`);
+        const error = await response.json();
+        return { data: null, error };
       }
 
-      // Handle empty responses (e.g., DELETE without return)
-      const text = await response.text();
-      if (!text) {
-        return { data: null, error: null };
-      }
-
-      const data = JSON.parse(text);
-
-      // If single() was called, return first item or null
-      if (this.options.single) {
-        const result = Array.isArray(data) ? data[0] || null : data;
-        return { data: result as T, error: null };
-      }
-
-      return { data: data as T[], error: null };
-    } catch (error) {
-      console.error('PostgREST query error:', error);
-      return { data: null, error: error as Error };
+      const data = await response.json();
+      return { data, error: null };
+    } catch (err) {
+      return {
+        data: null,
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          details: '',
+          hint: '',
+          code: 'FETCH_ERROR',
+        },
+      };
     }
-  }
-
-  // Allow using then() for async/await pattern
-  then<TResult1 = { data: T[] | T | null; error: Error | null }, TResult2 = never>(
-    onfulfilled?: ((value: { data: T[] | T | null; error: Error | null }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
-  ): Promise<TResult1 | TResult2> {
-    return this.execute().then(onfulfilled, onrejected);
   }
 }
 
-// Main client object mimicking Supabase's structure
-export const postgrest = {
-  from<T = Record<string, unknown>>(table: string): PostgrestQueryBuilder<T> {
-    return new PostgrestQueryBuilder<T>(table);
-  }
-};
+class PostgrestInsertBuilder<T> {
+  private table: string;
+  private data: Partial<T> | Partial<T>[];
+  private returnData: boolean = false;
+  private selectColumns: string = '*';
 
-// Also export as db for shorter usage
+  constructor(table: string, data: Partial<T> | Partial<T>[]) {
+    this.table = table;
+    this.data = data;
+  }
+
+  select(columns: string = '*'): this {
+    this.returnData = true;
+    this.selectColumns = columns;
+    return this;
+  }
+
+  single(): this {
+    return this;
+  }
+
+  async then<TResult>(
+    onfulfilled?: (value: PostgrestResponse<T | T[] | null>) => TResult | PromiseLike<TResult>
+  ): Promise<TResult> {
+    const result = await this.execute();
+    return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
+  }
+
+  private async execute(): Promise<PostgrestResponse<T | T[] | null>> {
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Prefer': this.returnData ? 'return=representation' : 'return=minimal',
+      };
+
+      const response = await fetch(`${POSTGREST_URL}/${this.table}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(this.data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { data: null, error };
+      }
+
+      if (this.returnData) {
+        const data = await response.json();
+        return { data, error: null };
+      }
+
+      return { data: null, error: null };
+    } catch (err) {
+      return {
+        data: null,
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          details: '',
+          hint: '',
+          code: 'FETCH_ERROR',
+        },
+      };
+    }
+  }
+}
+
+class PostgrestUpdateBuilder<T> {
+  private table: string;
+  private data: Partial<T>;
+  private filters: QueryFilter[] = [];
+  private returnData: boolean = false;
+
+  constructor(table: string, data: Partial<T>) {
+    this.table = table;
+    this.data = data;
+  }
+
+  eq(column: string, value: string | number | boolean): this {
+    this.filters.push({ column, operator: 'eq', value });
+    return this;
+  }
+
+  select(): this {
+    this.returnData = true;
+    return this;
+  }
+
+  single(): this {
+    return this;
+  }
+
+  async then<TResult>(
+    onfulfilled?: (value: PostgrestResponse<T | null>) => TResult | PromiseLike<TResult>
+  ): Promise<TResult> {
+    const result = await this.execute();
+    return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
+  }
+
+  private buildUrl(): string {
+    const url = new URL(`${POSTGREST_URL}/${this.table}`);
+    for (const filter of this.filters) {
+      url.searchParams.set(filter.column, `${filter.operator}.${filter.value}`);
+    }
+    return url.toString();
+  }
+
+  private async execute(): Promise<PostgrestResponse<T | null>> {
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Prefer': this.returnData ? 'return=representation' : 'return=minimal',
+      };
+
+      const response = await fetch(this.buildUrl(), {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(this.data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { data: null, error };
+      }
+
+      if (this.returnData) {
+        const data = await response.json();
+        return { data: Array.isArray(data) ? data[0] : data, error: null };
+      }
+
+      return { data: null, error: null };
+    } catch (err) {
+      return {
+        data: null,
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          details: '',
+          hint: '',
+          code: 'FETCH_ERROR',
+        },
+      };
+    }
+  }
+}
+
+class PostgrestDeleteBuilder {
+  private table: string;
+  private filters: QueryFilter[] = [];
+
+  constructor(table: string) {
+    this.table = table;
+  }
+
+  eq(column: string, value: string | number | boolean): this {
+    this.filters.push({ column, operator: 'eq', value });
+    return this;
+  }
+
+  async then<TResult>(
+    onfulfilled?: (value: PostgrestResponse<null>) => TResult | PromiseLike<TResult>
+  ): Promise<TResult> {
+    const result = await this.execute();
+    return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
+  }
+
+  private buildUrl(): string {
+    const url = new URL(`${POSTGREST_URL}/${this.table}`);
+    for (const filter of this.filters) {
+      url.searchParams.set(filter.column, `${filter.operator}.${filter.value}`);
+    }
+    return url.toString();
+  }
+
+  private async execute(): Promise<PostgrestResponse<null>> {
+    try {
+      const response = await fetch(this.buildUrl(), {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { data: null, error };
+      }
+
+      return { data: null, error: null };
+    } catch (err) {
+      return {
+        data: null,
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          details: '',
+          hint: '',
+          code: 'FETCH_ERROR',
+        },
+      };
+    }
+  }
+}
+
+class PostgrestTableBuilder<T = unknown> {
+  private table: string;
+
+  constructor(table: string) {
+    this.table = table;
+  }
+
+  select(columns: string = '*'): PostgrestQueryBuilder<T> {
+    return new PostgrestQueryBuilder<T>(this.table).select(columns);
+  }
+
+  insert(data: Partial<T> | Partial<T>[]): PostgrestInsertBuilder<T> {
+    return new PostgrestInsertBuilder<T>(this.table, data);
+  }
+
+  update(data: Partial<T>): PostgrestUpdateBuilder<T> {
+    return new PostgrestUpdateBuilder<T>(this.table, data);
+  }
+
+  delete(): PostgrestDeleteBuilder {
+    return new PostgrestDeleteBuilder(this.table);
+  }
+}
+
+class PostgrestClient {
+  from<T = unknown>(table: string): PostgrestTableBuilder<T> {
+    return new PostgrestTableBuilder<T>(table);
+  }
+
+  /**
+   * Call a PostgreSQL function via RPC
+   */
+  async rpc<T = unknown>(
+    functionName: string,
+    params?: Record<string, unknown>
+  ): Promise<PostgrestResponse<T>> {
+    try {
+      const response = await fetch(`${POSTGREST_URL}/rpc/${functionName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: params ? JSON.stringify(params) : undefined,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { data: null, error };
+      }
+
+      const data = await response.json();
+      return { data, error: null };
+    } catch (err) {
+      return {
+        data: null,
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          details: '',
+          hint: '',
+          code: 'FETCH_ERROR',
+        },
+      };
+    }
+  }
+}
+
+// Export singleton instance (similar to Supabase client)
+export const postgrest = new PostgrestClient();
+
+// Also export as 'db' for convenience
 export const db = postgrest;
 
-// Export the API URL for reference
-export const getApiUrl = () => API_URL;
+// Export types
+export type { PostgrestResponse, PostgrestError };

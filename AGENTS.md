@@ -11,9 +11,9 @@ This document provides guidance for AI agents working on the HypnoRaffle codebas
 - **Framework**: Next.js 15 with App Router (React 19)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS with shadcn/ui components
-- **Database**: Supabase (PostgreSQL with real-time subscriptions)
+- **Database**: PostgreSQL with PostgREST API (Docker-based)
 - **AI Integration**: Google Genkit (optional)
-- **Deployment**: GitHub Pages (static export) via personal GitHub remote (`LeonMelamud/QR-Tools`)
+- **Deployment**: Docker with Cloudflare Tunnel (self-hosted)
 
 ## Project Structure
 
@@ -37,11 +37,12 @@ src/
 │   ├── QrModalContext.tsx
 │   └── SessionContext.tsx
 ├── hooks/                 # Custom React hooks
-│   ├── use-participants.ts # Supabase participants subscription
+│   ├── use-participants.ts # Participants polling hook
 │   ├── use-session.ts     # Session management
 │   └── use-toast.ts       # Toast notifications
 ├── lib/                   # Utilities and configurations
-│   ├── supabase.ts        # Supabase client initialization
+│   ├── postgrest.ts       # PostgREST client
+│   ├── supabase.ts        # Database client (wraps PostgREST)
 │   └── utils.ts           # Helper functions (secureRandom, cn, etc.)
 ├── types/                 # TypeScript type definitions
 │   └── index.ts           # Participant, Session interfaces
@@ -70,10 +71,22 @@ interface Participant {
 }
 ```
 
-### Real-time Updates
+### Polling for Updates
 
-- Supabase real-time subscriptions keep participant list in sync
-- Changes are broadcast to all connected clients immediately
+Since PostgREST doesn't support real-time subscriptions, use polling:
+
+```typescript
+useEffect(() => {
+  const fetchData = async () => {
+    const { data } = await db.from('participants').select('*').eq('session_id', sessionId);
+    setParticipants(data || []);
+  };
+  
+  fetchData();
+  const interval = setInterval(fetchData, 2000); // Poll every 2 seconds
+  return () => clearInterval(interval);
+}, [sessionId]);
+```
 
 ## Development Guidelines
 
@@ -94,18 +107,30 @@ interface Participant {
 
 ### Database Operations
 
-- Always use the Supabase client from `@/lib/supabase`
+- Always use the database client from `@/lib/supabase` (wraps PostgREST)
 - Include `session_id` when inserting participants
-- Use real-time subscriptions for live updates
-- Row Level Security (RLS) is enabled - respect policies
+- Row Level Security (RLS) is enabled in PostgreSQL - respect policies
+- API calls go through PostgREST at port 3001
 
 ### Environment Variables
 
 Required environment variables:
 ```
-NEXT_PUBLIC_SUPABASE_URL=<supabase_project_url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase_anon_key>
+# Database
+POSTGRES_USER=hypnoraffle
+POSTGRES_PASSWORD=<secure_password>
+POSTGRES_DB=hypnoraffle
+
+# API
+NEXT_PUBLIC_POSTGREST_URL=http://localhost:3001
+JWT_SECRET=<min_32_char_secret>
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:9002
 NEXT_PUBLIC_WINNER_WEBHOOK_URL=<optional_webhook_url>
+
+# Optional: Cloudflare Tunnel
+CLOUDFLARE_TUNNEL_TOKEN=<tunnel_token>
 ```
 
 ## Common Tasks
@@ -124,23 +149,23 @@ NEXT_PUBLIC_WINNER_WEBHOOK_URL=<optional_webhook_url>
 
 ### Modifying Database Schema
 
-1. Update SQL in `docs/database_schema.sql`
-2. Create a migration file in `docs/` if needed
+1. Update SQL in `docker/init.sql`
+2. Rebuild containers: `docker compose down && docker compose --profile dev up --build`
 3. Update TypeScript types in `src/types/index.ts`
 
 ### Working with Participants
 
 ```typescript
 // Fetch participants
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/supabase';
 
-const { data, error } = await supabase
+const { data, error } = await db
   .from('participants')
   .select('*')
   .eq('session_id', sessionId);
 
 // Insert participant
-await supabase.from('participants').insert({
+await db.from('participants').insert({
   name: 'John',
   last_name: 'Doe',
   display_name: 'John D.',
@@ -149,29 +174,58 @@ await supabase.from('participants').insert({
 });
 
 // Mark winner
-await supabase
+await db
   .from('participants')
   .update({ won: true })
   .eq('id', participantId);
+
+// Create session with QR code (RPC call)
+const { data } = await db.rpc('create_session_with_qr', { 
+  session_name: 'My Raffle' 
+});
 ```
 
 ## Testing & Validation
 
 - Run `npm run typecheck` to verify TypeScript types
 - Run `npm run lint` for linting
-- Run `npm run build` to ensure static export works
+- Run `npm run build` to ensure build works
+
+## Docker Commands
+
+```bash
+# Development (with hot-reload)
+docker compose --profile dev up --build
+
+# Production
+docker compose --profile prod up -d --build
+
+# With Cloudflare Tunnel
+docker compose --profile prod --profile tunnel up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+
+# Reset database (DELETES DATA)
+docker compose down -v
+```
 
 ## Important Notes
 
-1. **Static Export**: The app is deployed as a static export to GitHub Pages. Avoid server-side features.
+1. **Docker Deployment**: The app runs in Docker with PostgreSQL + PostgREST. Use `docker compose --profile dev up` for development.
 
 2. **Secure Random**: Use `secureRandom()` from `@/lib/utils` for winner selection, not `Math.random()`.
 
 3. **Toast Notifications**: Use the `useToast()` hook for user feedback.
 
-4. **Real-time**: The app relies on Supabase real-time. Ensure subscriptions are properly cleaned up in `useEffect` returns.
+4. **Polling for Updates**: Since PostgREST doesn't support real-time, use polling or implement SSE for live updates.
 
 5. **Session Isolation**: Always filter data by `session_id` to prevent cross-session data leaks.
+
+6. **Security**: RLS policies are in `docker/init.sql`. JWT authentication is available for admin features.
 
 ## File Naming Conventions
 

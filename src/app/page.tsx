@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { QrCode, Ticket } from "lucide-react";
-import { UserProfile } from "@/components/auth/user-profile";
+import { UserProfile } from "../components/auth/user-profile";
 
 export default function Home() {
     return (

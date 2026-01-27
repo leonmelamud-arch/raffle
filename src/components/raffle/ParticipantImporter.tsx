@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useRef } from 'react';
-import type { Participant } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import type { Participant } from '../../types';
+import { useToast } from '../../hooks/use-toast';
 
 interface ParticipantImporterProps {
   onParticipantsLoad: (participants: Participant[]) => void;

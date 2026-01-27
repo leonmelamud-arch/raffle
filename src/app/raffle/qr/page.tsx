@@ -4,11 +4,11 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from 'next/navigation';
-import { db } from "@/lib/postgrest";
+import { db } from "../../../lib/postgrest";
 import isEmail from 'validator/lib/isEmail';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import {
   Form,
   FormControl,
@@ -16,8 +16,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
+} from "../../../components/ui/form";
+import { useToast } from "../../../hooks/use-toast";
 import { AlertCircle } from "lucide-react";
 
 // List of common disposable/temporary email domains to block

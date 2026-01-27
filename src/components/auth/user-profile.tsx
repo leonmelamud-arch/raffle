@@ -1,6 +1,6 @@
 'use client'
 
-import { useUserProfile } from '@/hooks/use-user-profile'
+import { useUserProfile } from '../../hooks/use-user-profile'
 import { LoginButton } from './login-button'
 import {
     DropdownMenu,
@@ -9,9 +9,9 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+} from '../ui/dropdown-menu'
+import { Button } from '../ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import Link from 'next/link'
 import { LogOut, User as UserIcon, Shield } from 'lucide-react'
 

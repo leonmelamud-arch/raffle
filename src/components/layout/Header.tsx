@@ -4,13 +4,13 @@ import { Button } from '../ui/button';
 import { QrCode, Upload, Sparkles } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { ParticipantImporter } from '../raffle/ParticipantImporter';
-import { useQrModal } from '@/context/QrModalContext';
+import { useQrModal } from '../../context/QrModalContext';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "../ui/tooltip"
 
 
 interface HeaderProps {

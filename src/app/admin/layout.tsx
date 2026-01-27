@@ -1,6 +1,6 @@
 'use client'
 
-import { useUserProfile } from '@/hooks/use-user-profile'
+import { useUserProfile } from '../../hooks/use-user-profile'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 

@@ -19,7 +19,7 @@ const ParticipantsContext = createContext<ParticipantsContextType | undefined>(u
 
 export function ParticipantsProvider({ children }: { children: ReactNode }) {
   const { sessionId, loading: sessionLoading } = useSessionContext();
-  const { participants, loading: participantsLoading, error, refetch } = useParticipantsHook(sessionId);
+  const { participants, loading: participantsLoading, error, refetch } = useParticipantsHook({ sessionId });
   const [allParticipants, setAllParticipants] = useState<Participant[]>([]);
   const [availableParticipants, setAvailableParticipants] = useState<Participant[]>([]);
 
@@ -33,8 +33,19 @@ export function ParticipantsProvider({ children }: { children: ReactNode }) {
       // Filter available based on won status from DB
       const available = sortedParticipants.filter(p => !p.won);
       
-      setAllParticipants(sortedParticipants);
-      setAvailableParticipants(available);
+      // Only update if data actually changed
+      setAllParticipants(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(sortedParticipants)) {
+          return prev;
+        }
+        return sortedParticipants;
+      });
+      setAvailableParticipants(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(available)) {
+          return prev;
+        }
+        return available;
+      });
     }
   }, [participants]);
 

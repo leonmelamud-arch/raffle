@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/auth-helpers-nextjs'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useToast } from '@/hooks/use-toast'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { useToast } from '../../hooks/use-toast'
 import Link from 'next/link'
 
 export default function LoginPage() {

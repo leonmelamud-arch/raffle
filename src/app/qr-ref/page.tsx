@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useRef } from 'react';
 import QRCode from "react-qr-code";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Switch } from '../../components/ui/switch';
+import { Badge } from '../../components/ui/badge';
 import {
   Copy,
   ExternalLink,
@@ -26,10 +26,10 @@ import {
   ImagePlus,
   X
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/postgrest';
-import { isExpired, generateSlug, downloadQRCode, QRDownloadOptions } from '@/lib/qr-utils';
-import { QrRef } from '@/types';
+import { useToast } from '../../hooks/use-toast';
+import { db } from '../../lib/postgrest';
+import { isExpired, generateSlug, downloadQRCode, QRDownloadOptions } from '../../lib/qr-utils';
+import { QrRef } from '../../types';
 
 // QR Style types
 type QRStyle = {

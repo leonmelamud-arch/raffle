@@ -1,23 +1,26 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import type { Participant } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Header } from '@/components/layout/Header';
-import { SlotMachine } from '@/components/raffle/SlotMachine';
-import { SessionIndicator } from '@/components/raffle/SessionIndicator';
-import { ParticipantsList } from '@/components/raffle/ParticipantsList';
-import { secureRandom } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import { Trophy, ServerCrash } from 'lucide-react';
-import { useParticipants } from '@/context/ParticipantsContext';
-import { useSessionContext } from '@/context/SessionContext';
-import { Confetti } from '@/components/raffle/Confetti';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import type { Participant } from '../../types';
+import { Button } from '../../components/ui/button';
+import { Header } from '../../components/layout/Header';
+import { SlotMachine } from '../../components/raffle/SlotMachine';
+import { SessionIndicator } from '../../components/raffle/SessionIndicator';
+import { ParticipantsList } from '../../components/raffle/ParticipantsList';
+import { secureRandom } from '../../lib/utils';
+import { useToast } from '../../hooks/use-toast';
+import { Trophy, ServerCrash, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useParticipants } from '../../context/ParticipantsContext';
+import { useSessionContext } from '../../context/SessionContext';
+import { Confetti } from '../../components/raffle/Confetti';
 import Image from 'next/image';
-import { db } from '@/lib/postgrest';
+import { db } from '../../lib/postgrest';
 
-const initialLogo = PlaceHolderImages.find(img => img.id === 'leon-linkedin');
+interface AvailableImage {
+  id: string;
+  src: string;
+  alt: string;
+}
 
 export default function Home() {
   const {
@@ -36,9 +39,68 @@ export default function Home() {
   const [isRaffling, setIsRaffling] = useState(false);
   const [spinHasEnded, setSpinHasEnded] = useState(false);
   const [isRainingLogos, setIsRainingLogos] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(initialLogo?.imageUrl);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
+  const [availableImages, setAvailableImages] = useState<AvailableImage[]>([
+    { id: 'linkedin-qr-leon', src: '/images/linkedin-qr-leon.svg', alt: 'LinkedIn QR Code' }
+  ]);
+  const [imagesLoading, setImagesLoading] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset raffle state when session changes
+  useEffect(() => {
+    setWinner(null);
+    setIsRaffling(false);
+    setSpinHasEnded(false);
+    setIsRainingLogos(false);
+  }, [sessionId]);
+
+  // Fetch available images from API
+  const fetchImages = async () => {
+    setImagesLoading(true);
+    try {
+      const response = await fetch('/api/images');
+      const data = await response.json();
+      if (data.images && data.images.length > 0) {
+        setAvailableImages(data.images);
+        setCurrentImageIndex(0);
+        toast({
+          title: "Images Loaded",
+          description: `Found ${data.images.length} images.`,
+        });
+      } else {
+        toast({
+          title: "No Images",
+          description: "No images found in /public/images folder.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load images:', err);
+      toast({
+        title: "Load Failed",
+        description: "Could not fetch images.",
+        variant: "destructive"
+      });
+    } finally {
+      setImagesLoading(false);
+    }
+  };
+
+  // Computed logo URL - use custom if set, otherwise use current image from array
+  const logoUrl = customLogoUrl || availableImages[currentImageIndex]?.src;
+  const logoAlt = customLogoUrl ? 'Custom Logo' : availableImages[currentImageIndex]?.alt;
+
+  const handlePrevImage = () => {
+    setCustomLogoUrl(null); // Clear custom logo when navigating
+    setCurrentImageIndex((prev) => (prev === 0 ? availableImages.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    setCustomLogoUrl(null); // Clear custom logo when navigating
+    setCurrentImageIndex((prev) => (prev === availableImages.length - 1 ? 0 : prev + 1));
+  };
   // Supabase instance is imported globally if needed, or we can use the hook logic.
   // Actually, for this component we can just import the client directly.
   const handleParticipantsLoad = async (newParticipants: Participant[]) => {
@@ -100,10 +162,10 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const newUrl = e.target?.result as string;
-      setLogoUrl(newUrl);
+      setCustomLogoUrl(newUrl);
       toast({
         title: "Logo Updated",
-        description: "The new logo has been applied.",
+        description: "The custom logo has been applied.",
       });
     };
     reader.readAsDataURL(file);
@@ -258,21 +320,57 @@ export default function Home() {
 
         <div className="w-full max-w-2xl mx-auto flex-grow flex flex-col items-center justify-start gap-8">
 
-          {logoUrl && (
-            <button onClick={handleLogoClick} className="cursor-pointer group relative mb-4">
-              <Image
-                src={logoUrl}
-                alt={initialLogo?.description || "Raffle Logo"}
-                width={480}
-                height={240}
-                className="object-contain group-hover:opacity-80 transition-opacity"
-                data-ai-hint={initialLogo?.imageHint}
-              />
-              <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-white text-sm font-bold">Change Logo</span>
-              </div>
-            </button>
-          )}
+          <div className="w-full max-w-lg flex flex-col items-center gap-2">
+            <div className="relative w-full">
+              {logoUrl ? (
+                <button onClick={handleLogoClick} className="cursor-pointer group relative w-full flex justify-center">
+                  <Image
+                    src={logoUrl}
+                    alt={logoAlt || "Raffle Logo"}
+                    width={480}
+                    height={240}
+                    className="object-contain group-hover:opacity-80 transition-opacity"
+                  />
+                  <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-sm font-bold">Upload Custom</span>
+                  </div>
+                </button>
+              ) : (
+                <div className="w-full h-[240px] flex items-center justify-center border-2 border-dashed border-primary/30 rounded-lg">
+                  <span className="text-muted-foreground">No images loaded</span>
+                </div>
+              )}
+
+              {availableImages.length > 1 && (
+                <>
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors z-30"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-6 w-6 text-white" />
+                  </button>
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors z-30"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-6 w-6 text-white" />
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={fetchImages}
+                disabled={imagesLoading}
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50 z-30"
+                aria-label="Refresh images"
+                title="Load images from /public/images"
+              >
+                <RefreshCw className={`h-4 w-4 text-white ${imagesLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
           <input
             type="file"
             ref={fileInputRef}

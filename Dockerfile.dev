@@ -1,22 +1,22 @@
-# Development Dockerfile with hot-reload support
+# Development Dockerfile with hot-reload
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies for better DX
+# Install dependencies for node-gyp (if needed)
 RUN apk add --no-cache libc6-compat
 
 # Copy package files
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
-# Copy source code (will be overridden by volume mount in development)
+# Copy source code (will be overridden by volume mount)
 COPY . .
 
-# Expose port
-EXPOSE 9002
+# Expose Next.js dev server port
+EXPOSE 3000
 
 # Start development server
 CMD ["npm", "run", "dev"]

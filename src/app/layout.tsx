@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { cn } from '@/lib/utils';
-import { Toaster } from "@/components/ui/toaster";
-import { SessionProvider } from '@/context/SessionContext';
-import { ParticipantsProvider } from '@/context/ParticipantsContext';
-import { QrModalProvider } from '@/context/QrModalContext';
+import { cn } from '../lib/utils';
+import { Toaster } from "../components/ui/toaster";
+import { SessionProvider } from '../context/SessionContext';
+import { ParticipantsProvider } from '../context/ParticipantsContext';
+import { QrModalProvider } from '../context/QrModalContext';
 
 export const metadata: Metadata = {
   title: 'QR Tools',

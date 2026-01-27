@@ -1,16 +1,16 @@
 'use client';
 
-import { useSessionContext } from '@/context/SessionContext';
-import { useQrModal } from '@/context/QrModalContext';
-import { Button } from '@/components/ui/button';
+import { useSessionContext } from '../../context/SessionContext';
+import { useQrModal } from '../../context/QrModalContext';
+import { Button } from '../ui/button';
 import { RefreshCw, Copy, Check, QrCode, X, KeyRound } from 'lucide-react';
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../hooks/use-toast';
 import { QRCodeSVG } from 'qrcode.react';
-import { Input } from '@/components/ui/input';
+import { Input } from '../ui/input';
 
 export function SessionIndicator() {
-    const { sessionId, loading, startNewSession, switchToSession } = useSessionContext();
+    const { sessionId, loading, createSession, loadSession } = useSessionContext();
     const { showQrModal, closeQrModal, openQrModal } = useQrModal();
     const [isCreating, setIsCreating] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -36,12 +36,21 @@ export function SessionIndicator() {
 
         setShowConfirmDialog(false);
         setIsCreating(true);
-        await startNewSession();
+        const result = await createSession();
         setIsCreating(false);
-        toast({
-            title: 'New Session Started',
-            description: 'A fresh raffle session has been created.',
-        });
+        
+        if (result) {
+            toast({
+                title: 'New Session Started',
+                description: `Session ${result.sessionId.substring(0, 8).toUpperCase()} has been created.`,
+            });
+        } else {
+            toast({
+                title: 'Session Creation Failed',
+                description: 'Could not create a new session. Please try again.',
+                variant: 'destructive',
+            });
+        }
     };
 
     const handleCancelNewSession = () => {
@@ -59,22 +68,22 @@ export function SessionIndicator() {
         }
 
         setIsSwitching(true);
-        const success = await switchToSession(switchSessionId.trim());
-        setIsSwitching(false);
-
-        if (success) {
+        try {
+            await loadSession(switchSessionId.trim());
             setShowSwitchDialog(false);
             setSwitchSessionId('');
             toast({
                 title: 'Session Switched',
                 description: 'You are now viewing the selected session.',
             });
-        } else {
+        } catch {
             toast({
                 title: 'Session Not Found',
                 description: 'Could not find a session with that ID. Please check and try again.',
                 variant: 'destructive',
             });
+        } finally {
+            setIsSwitching(false);
         }
     };
 

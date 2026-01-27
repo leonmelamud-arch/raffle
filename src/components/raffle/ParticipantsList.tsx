@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useParticipants } from '@/context/ParticipantsContext';
+import { useParticipants } from '../../context/ParticipantsContext';
 import { ChevronLeft, ChevronRight, Users, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 
 export function ParticipantsList() {
     const { allParticipants, availableParticipants } = useParticipants();

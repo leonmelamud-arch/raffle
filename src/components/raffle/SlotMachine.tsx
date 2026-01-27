@@ -1,9 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { Participant } from '@/types';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect, useRef } from 'react';
+import type { Participant } from '../../types';
 import { Skeleton } from '../ui/skeleton';
 
 interface SlotMachineProps {
@@ -20,30 +19,29 @@ const ITEM_HEIGHT_REM = 5; // h-20
 const ITEM_HEIGHT_PX = ITEM_HEIGHT_REM * 16; // 80px
 
 export function SlotMachine({ participants, winner, isSpinning, onSpinEnd, loading, error }: SlotMachineProps) {
-  const [shuffledParticipants, setShuffledParticipants] = useState<Participant[]>([]);
+  const [displayList, setDisplayList] = useState<Participant[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
+  const wasSpinningRef = useRef(false);
 
-  const participantList = useMemo(() => {
-    if (participants.length === 0) return [];
-    // Use a stable shuffle based on participants array to avoid re-shuffling on every render
-    const shuffled = [...participants].sort(() => 0.5 - Math.random());
-    return Array.from({ length: REPETITIONS }, () => shuffled).flat();
-  }, [participants]);
-
+  // Only update display list when spinning STARTS (not during or on every poll)
   useEffect(() => {
-    if (participants.length > 0) {
-      setShuffledParticipants(participantList);
-    } else {
-      setShuffledParticipants([]);
+    // Detect when spinning starts (transition from false to true)
+    if (isSpinning && !wasSpinningRef.current && winner && participants.length > 0) {
+      // Shuffle participants for display
+      const shuffled = [...participants].sort(() => 0.5 - Math.random());
+      const repeated = Array.from({ length: REPETITIONS }, () => shuffled).flat();
+      setDisplayList(repeated);
     }
-  }, [participants, participantList]);
+    wasSpinningRef.current = isSpinning;
+  }, [isSpinning, winner, participants]);
 
+  // Handle the spinning animation
   useEffect(() => {
-    if (isSpinning && winner && shuffledParticipants.length > 0) {
+    if (isSpinning && winner && displayList.length > 0) {
       // Find a winner instance in the latter half for a good spin
-      const winnerIndex = shuffledParticipants.findIndex(
-        (p, index) => p.id === winner.id && index >= shuffledParticipants.length / 2
+      const winnerIndex = displayList.findIndex(
+        (p, index) => p.id === winner.id && index >= displayList.length / 2
       );
 
       if (winnerIndex !== -1) {
@@ -67,7 +65,7 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd, loadi
         setIsAnimating(true);
       }
     }
-  }, [isSpinning, winner, shuffledParticipants]);
+  }, [displayList, winner, isSpinning]);
 
   const handleTransitionEnd = () => {
     if (isAnimating) {
@@ -76,7 +74,13 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd, loadi
     }
   };
 
-  const hasParticipants = shuffledParticipants.length > 0;
+  // Show idle state with participant names (non-animated) when not spinning
+  const idleList = participants.length > 0 
+    ? [...participants, ...participants, ...participants].slice(0, Math.max(3, participants.length))
+    : [];
+
+  const hasParticipants = participants.length > 0;
+  const showList = isSpinning || isAnimating ? displayList : idleList;
 
   if (loading) {
     return (
@@ -111,7 +115,7 @@ export function SlotMachine({ participants, winner, isSpinning, onSpinEnd, loadi
             Could not connect to the database. Please check console for errors.
           </li>
         ) : hasParticipants ? (
-          shuffledParticipants.map((p, i) => (
+          showList.map((p, i) => (
             <li
               key={`${p.id}-${i}`}
               className="h-20 flex items-center justify-center text-4xl font-bold text-card-foreground/70"
