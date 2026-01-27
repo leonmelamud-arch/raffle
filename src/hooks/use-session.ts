@@ -73,14 +73,14 @@ export function useSession(): UseSessionReturn {
       let qrShortCode: string | null = null;
       try {
         const { data: qrData } = await db
-          .from<QrRef>('qr_refs')
+          .from<QrRef>('raffle_qr_refs')
           .select('*')
           .eq('session_id', id)
           .single();
         const qr = qrData as unknown as QrRef | null;
         qrShortCode = qr ? qr.short_code : null;
       } catch {
-        // QR refs table might not exist or have different schema - that's ok
+        // raffle_qr_refs table might not exist - that's ok
       }
 
       const session = sessionData as unknown as Session | null;
@@ -169,14 +169,14 @@ export function useSession(): UseSessionReturn {
 
       const newSessionId = (sessionData as Session).id;
 
-      // Generate short code and create qr_ref
+      // Generate short code and create raffle_qr_ref
       let newShortCode = generateShortCode();
       let qrCreated = false;
       let attempts = 0;
 
       while (!qrCreated && attempts < 5) {
         const { error: qrError } = await db
-          .from('qr_refs')
+          .from('raffle_qr_refs')
           .insert({ session_id: newSessionId, short_code: newShortCode });
 
         if (!qrError) {

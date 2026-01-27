@@ -27,10 +27,18 @@ if (isSupabaseConfigured) {
 // Database backend type
 type DatabaseBackend = 'supabase' | 'postgrest';
 
+// Check if PostgREST is configured (only use in Docker/local deployment)
+const POSTGREST_URL = process.env.NEXT_PUBLIC_POSTGREST_URL || '';
+const isPostgrestConfigured = !!(POSTGREST_URL && !POSTGREST_URL.includes('localhost'));
+
 // Get current active backend
 export function getActiveBackend(): DatabaseBackend {
   return isSupabaseConfigured ? 'supabase' : 'postgrest';
 }
+
+// Should we fallback to PostgREST on Supabase errors?
+// Only use fallback if PostgREST is explicitly configured (not localhost)
+const shouldUseFallback = isPostgrestConfigured;
 
 /**
  * Wrapper class that provides Supabase-first access with PostgREST fallback
@@ -71,13 +79,21 @@ class DatabaseClient {
       try {
         const { data, error } = await this.supabase.rpc(functionName, params);
         if (error) {
-          console.warn(`[DB] Supabase RPC failed, falling back to PostgREST: ${error.message}`);
-          return postgrest.rpc<T>(functionName, params);
+          console.error(`[DB] Supabase RPC failed: ${error.message}`);
+          if (shouldUseFallback) {
+            console.warn(`[DB] Falling back to PostgREST`);
+            return postgrest.rpc<T>(functionName, params);
+          }
+          return { data: null, error: { message: error.message, details: '', hint: '', code: error.code || 'RPC_ERROR' } };
         }
         return { data: data as T, error: null };
       } catch (err) {
-        console.warn(`[DB] Supabase RPC error, falling back to PostgREST:`, err);
-        return postgrest.rpc<T>(functionName, params);
+        console.error(`[DB] Supabase RPC error:`, err);
+        if (shouldUseFallback) {
+          console.warn(`[DB] Falling back to PostgREST`);
+          return postgrest.rpc<T>(functionName, params);
+        }
+        return { data: null, error: { message: err instanceof Error ? err.message : 'Unknown error', details: '', hint: '', code: 'RPC_ERROR' } };
       }
     }
     return postgrest.rpc<T>(functionName, params);
@@ -220,16 +236,26 @@ class FallbackQueryBuilder<T> {
     try {
       const { data, error } = await this.supabaseQuery;
       if (error) {
-        console.warn(`[DB] Supabase ${this.operation} failed, falling back to PostgREST: ${error.message}`);
-        const fallbackResult = await this.getPostgrestQuery();
-        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T[]>) : fallbackResult as unknown as TResult;
+        console.error(`[DB] Supabase ${this.operation} failed: ${error.message}`);
+        if (shouldUseFallback) {
+          console.warn(`[DB] Falling back to PostgREST`);
+          const fallbackResult = await this.getPostgrestQuery();
+          return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T[]>) : fallbackResult as unknown as TResult;
+        }
+        const errorResult: PostgrestResponse<T[]> = { data: null, error: { message: error.message, details: '', hint: '', code: error.code || 'QUERY_ERROR' } };
+        return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
       }
       const result: PostgrestResponse<T[]> = { data: data as T[], error: null };
       return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
     } catch (err) {
-      console.warn(`[DB] Supabase ${this.operation} error, falling back to PostgREST:`, err);
-      const fallbackResult = await this.getPostgrestQuery();
-      return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T[]>) : fallbackResult as unknown as TResult;
+      console.error(`[DB] Supabase ${this.operation} error:`, err);
+      if (shouldUseFallback) {
+        console.warn(`[DB] Falling back to PostgREST`);
+        const fallbackResult = await this.getPostgrestQuery();
+        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T[]>) : fallbackResult as unknown as TResult;
+      }
+      const errorResult: PostgrestResponse<T[]> = { data: null, error: { message: err instanceof Error ? err.message : 'Unknown error', details: '', hint: '', code: 'QUERY_ERROR' } };
+      return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
     }
   }
 }
@@ -278,16 +304,26 @@ class FallbackInsertBuilder<T> {
     try {
       const { data, error } = await this.supabaseQuery;
       if (error) {
-        console.warn(`[DB] Supabase ${this.operation} failed, falling back to PostgREST: ${error.message}`);
-        const fallbackResult = await this.getPostgrestQuery();
-        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | T[] | null>) : fallbackResult as unknown as TResult;
+        console.error(`[DB] Supabase ${this.operation} failed: ${error.message}`);
+        if (shouldUseFallback) {
+          console.warn(`[DB] Falling back to PostgREST`);
+          const fallbackResult = await this.getPostgrestQuery();
+          return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | T[] | null>) : fallbackResult as unknown as TResult;
+        }
+        const errorResult: PostgrestResponse<T | T[] | null> = { data: null, error: { message: error.message, details: '', hint: '', code: error.code || 'INSERT_ERROR' } };
+        return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
       }
       const result: PostgrestResponse<T | T[] | null> = { data: data as T | T[] | null, error: null };
       return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
     } catch (err) {
-      console.warn(`[DB] Supabase ${this.operation} error, falling back to PostgREST:`, err);
-      const fallbackResult = await this.getPostgrestQuery();
-      return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | T[] | null>) : fallbackResult as unknown as TResult;
+      console.error(`[DB] Supabase ${this.operation} error:`, err);
+      if (shouldUseFallback) {
+        console.warn(`[DB] Falling back to PostgREST`);
+        const fallbackResult = await this.getPostgrestQuery();
+        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | T[] | null>) : fallbackResult as unknown as TResult;
+      }
+      const errorResult: PostgrestResponse<T | T[] | null> = { data: null, error: { message: err instanceof Error ? err.message : 'Unknown error', details: '', hint: '', code: 'INSERT_ERROR' } };
+      return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
     }
   }
 }
@@ -342,16 +378,26 @@ class FallbackUpdateBuilder<T> {
     try {
       const { data, error } = await this.supabaseQuery;
       if (error) {
-        console.warn(`[DB] Supabase ${this.operation} failed, falling back to PostgREST: ${error.message}`);
-        const fallbackResult = await this.getPostgrestQuery();
-        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | null>) : fallbackResult as unknown as TResult;
+        console.error(`[DB] Supabase ${this.operation} failed: ${error.message}`);
+        if (shouldUseFallback) {
+          console.warn(`[DB] Falling back to PostgREST`);
+          const fallbackResult = await this.getPostgrestQuery();
+          return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | null>) : fallbackResult as unknown as TResult;
+        }
+        const errorResult: PostgrestResponse<T | null> = { data: null, error: { message: error.message, details: '', hint: '', code: error.code || 'UPDATE_ERROR' } };
+        return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
       }
       const result: PostgrestResponse<T | null> = { data: data as T | null, error: null };
       return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
     } catch (err) {
-      console.warn(`[DB] Supabase ${this.operation} error, falling back to PostgREST:`, err);
-      const fallbackResult = await this.getPostgrestQuery();
-      return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | null>) : fallbackResult as unknown as TResult;
+      console.error(`[DB] Supabase ${this.operation} error:`, err);
+      if (shouldUseFallback) {
+        console.warn(`[DB] Falling back to PostgREST`);
+        const fallbackResult = await this.getPostgrestQuery();
+        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<T | null>) : fallbackResult as unknown as TResult;
+      }
+      const errorResult: PostgrestResponse<T | null> = { data: null, error: { message: err instanceof Error ? err.message : 'Unknown error', details: '', hint: '', code: 'UPDATE_ERROR' } };
+      return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
     }
   }
 }
@@ -394,16 +440,26 @@ class FallbackDeleteBuilder<T> {
     try {
       const { error } = await this.supabaseQuery;
       if (error) {
-        console.warn(`[DB] Supabase ${this.operation} failed, falling back to PostgREST: ${error.message}`);
-        const fallbackResult = await this.getPostgrestQuery();
-        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<null>) : fallbackResult as unknown as TResult;
+        console.error(`[DB] Supabase ${this.operation} failed: ${error.message}`);
+        if (shouldUseFallback) {
+          console.warn(`[DB] Falling back to PostgREST`);
+          const fallbackResult = await this.getPostgrestQuery();
+          return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<null>) : fallbackResult as unknown as TResult;
+        }
+        const errorResult: PostgrestResponse<null> = { data: null, error: { message: error.message, details: '', hint: '', code: error.code || 'DELETE_ERROR' } };
+        return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
       }
       const result: PostgrestResponse<null> = { data: null, error: null };
       return onfulfilled ? onfulfilled(result) : result as unknown as TResult;
     } catch (err) {
-      console.warn(`[DB] Supabase ${this.operation} error, falling back to PostgREST:`, err);
-      const fallbackResult = await this.getPostgrestQuery();
-      return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<null>) : fallbackResult as unknown as TResult;
+      console.error(`[DB] Supabase ${this.operation} error:`, err);
+      if (shouldUseFallback) {
+        console.warn(`[DB] Falling back to PostgREST`);
+        const fallbackResult = await this.getPostgrestQuery();
+        return onfulfilled ? onfulfilled(fallbackResult as PostgrestResponse<null>) : fallbackResult as unknown as TResult;
+      }
+      const errorResult: PostgrestResponse<null> = { data: null, error: { message: err instanceof Error ? err.message : 'Unknown error', details: '', hint: '', code: 'DELETE_ERROR' } };
+      return onfulfilled ? onfulfilled(errorResult) : errorResult as unknown as TResult;
     }
   }
 }
