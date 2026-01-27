@@ -162,7 +162,7 @@ export default function QRRefPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [qrStyle, setQrStyle] = useState<QRStyle>(QR_STYLES[0]);
-  const [logoUrl, setLogoUrl] = useState<string | null>('/linkedin-qr-leon.svg');
+  const [logoUrl, setLogoUrl] = useState<string | null>('/images/Bandit.png');
   const [logoShape, setLogoShape] = useState<'square' | 'circle'>('circle');
   const [logoScale, setLogoScale] = useState<number>(1.0); // Border/container size: 0.5 to 1.5
   const [logoCrop, setLogoCrop] = useState<number>(1.0); // Image crop/zoom: 0.5 to 1.5
@@ -565,7 +565,7 @@ export default function QRRefPage() {
                     )}
                     <QRCode
                       id="qr-code-svg"
-                      value={selectedQr.target_url || ''}
+                      value={typeof window !== 'undefined' ? `${window.location.origin}/qr-ref/${selectedQr.slug}` : ''}
                       size={200}
                       level="H"
                       fgColor={qrStyle.type === 'gradient' ? 'url(#qr-gradient)' : qrStyle.fg}
