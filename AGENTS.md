@@ -213,6 +213,18 @@ docker compose down
 docker compose down -v
 ```
 
+## Git Configuration
+
+This repo has two remotes:
+- `origin` - Internal deployment (git-thetary)
+- `personal` - GitHub personal repo (github.com:LeonMelamud/qr-tools.git)
+
+**Always push to the `personal` remote for deployment:**
+
+```bash
+git push personal main
+```
+
 ## Important Notes
 
 1. **Docker Deployment**: The app runs in Docker with PostgreSQL + PostgREST. Use `docker compose --profile dev up` for development.
