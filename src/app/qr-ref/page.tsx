@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import QRCode from "react-qr-code";
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -24,7 +25,8 @@ import {
   BarChart3,
   Link2,
   ImagePlus,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { db } from '../../lib/supabase';
@@ -154,7 +156,12 @@ const qrToForm = (qr: QrRef) => ({
   display_message: qr.display_message || '',
 });
 
-export default function QRRefPage() {
+function QRRefContent() {
+  const searchParams = useSearchParams();
+  const redirectSlug = searchParams.get('go');
+  const [redirecting, setRedirecting] = useState(!!redirectSlug);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
+
   const [qrRefs, setQrRefs] = useState<QrRef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedQr, setSelectedQr] = useState<QrRef | null>(null);
@@ -169,9 +176,63 @@ export default function QRRefPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Handle redirect when ?go=slug is present
   useEffect(() => {
-    loadQrRefs();
-  }, []);
+    if (!redirectSlug) return;
+
+    const doRedirect = async () => {
+      try {
+        const { data: qrRef, error } = await db
+          .from('qr_refs')
+          .select('*')
+          .eq('slug', redirectSlug)
+          .single();
+
+        if (error || !qrRef) {
+          setRedirectError('QR code not found');
+          setRedirecting(false);
+          return;
+        }
+
+        if (!qrRef.is_active) {
+          setRedirectError('This QR code is inactive');
+          setRedirecting(false);
+          return;
+        }
+
+        if (qrRef.expires_at && new Date(qrRef.expires_at) < new Date()) {
+          setRedirectError('This QR code has expired');
+          setRedirecting(false);
+          return;
+        }
+
+        // Increment scan count (fire and forget)
+        const currentCount = (qrRef.scan_count as number) ?? 0;
+        db.from('qr_refs')
+          .update({ scan_count: currentCount + 1 })
+          .eq('id', qrRef.id)
+          .then(() => {});
+
+        // Redirect
+        const targetUrl = qrRef.target_url as string;
+        if (targetUrl) {
+          window.location.href = targetUrl;
+        } else {
+          setRedirectError('No target URL');
+          setRedirecting(false);
+        }
+      } catch {
+        setRedirectError('Something went wrong');
+        setRedirecting(false);
+      }
+    };
+
+    doRedirect();
+  }, [redirectSlug]);
+
+  useEffect(() => {
+    if (!redirectSlug) loadQrRefs();
+  }, [redirectSlug]);
 
   const loadQrRefs = async () => {
     setIsLoading(true);
@@ -316,7 +377,7 @@ export default function QRRefPage() {
   };
 
   const getQrPageUrl = () =>
-    typeof window !== 'undefined' ? `${window.location.origin}/qr-ref/${selectedQr?.slug}` : '';
+    typeof window !== 'undefined' ? `${window.location.origin}/qr-ref?go=${selectedQr?.slug}` : '';
 
   // Logo handling
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -356,6 +417,32 @@ export default function QRRefPage() {
     downloadQRCode(format, options);
     toast({ title: "Downloaded!", description: `QR code saved as ${format.toUpperCase()}.` });
   };
+
+  // Show redirect loading or error UI
+  if (redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="mt-4 text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (redirectError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center p-8">
+          <h1 className="text-2xl font-bold text-destructive mb-2">Oops!</h1>
+          <p className="text-muted-foreground mb-4">{redirectError}</p>
+          <a href="/qr-ref" className="text-primary hover:underline">
+            Go to QR Manager
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="flex flex-col min-h-screen w-full p-4 md:p-8 bg-background">
@@ -565,7 +652,7 @@ export default function QRRefPage() {
                     )}
                     <QRCode
                       id="qr-code-svg"
-                      value={typeof window !== 'undefined' ? `${window.location.origin}/qr-ref/${selectedQr.slug}` : ''}
+                      value={typeof window !== 'undefined' ? `${window.location.origin}/qr-ref?go=${selectedQr.slug}` : ''}
                       size={200}
                       level="H"
                       fgColor={qrStyle.type === 'gradient' ? 'url(#qr-gradient)' : qrStyle.fg}
@@ -758,5 +845,17 @@ export default function QRRefPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function QRRefPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <QRRefContent />
+    </Suspense>
   );
 }
